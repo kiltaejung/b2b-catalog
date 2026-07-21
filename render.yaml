@@ -1,9 +1,3 @@
-databases:
-  - name: b2b-catalog-db
-    plan: free
-    databaseName: b2b_catalog
-    user: b2b_catalog
-
 services:
   - type: web
     name: b2b-catalog
@@ -14,8 +8,6 @@ services:
     startCommand: npm run db:init && npm start
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: b2b-catalog-db
-          property: connectionString
+        sync: false
       - key: KAKAO_JS_KEY
         sync: false

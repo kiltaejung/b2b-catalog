@@ -1,10 +1,9 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { Pool } = require('pg');
+const pool = require('../server/config/db');
 
 async function main() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const sql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await pool.query(sql);
   await pool.end();
