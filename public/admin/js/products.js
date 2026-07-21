@@ -1,6 +1,7 @@
 const FIELD_IDS = [
   'display_order', 'category', 'product_code', 'name', 'brand', 'image_url',
-  'original_price', 'sale_price', 'composition', 'origin', 'features', 'description', 'shipping_info',
+  'original_price', 'sale_price', 'composition', 'packaging', 'origin', 'tax_type',
+  'features', 'description', 'shipping_info', 'promo_badge',
 ];
 
 const tableBody = document.getElementById('productTableBody');
@@ -30,6 +31,7 @@ function renderProducts(products) {
       <td>${p.name}</td>
       <td>${p.brand || ''}</td>
       <td>${Number(p.sale_price).toLocaleString()}원</td>
+      <td>${p.promo_badge ? `<span class="badge">${p.promo_badge}</span>` : ''}</td>
       <td>
         <button type="button" class="secondary" data-edit="${p.id}">수정</button>
         <button type="button" class="danger" data-delete="${p.id}">삭제</button>

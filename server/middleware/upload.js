@@ -18,4 +18,17 @@ const excelUpload = multer({
   },
 });
 
-module.exports = { excelUpload };
+const imageUpload = multer({
+  storage,
+  limits: { fileSize: 3 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('JPG, PNG, WEBP 이미지 파일만 업로드할 수 있습니다.'));
+    }
+  },
+});
+
+module.exports = { excelUpload, imageUpload };

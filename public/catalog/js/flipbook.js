@@ -138,7 +138,10 @@ function pageHtml(pageData) {
           <div class="product-grid">
             ${pageData.products.map((p) => `
               <div class="product-tile" data-goto="${state.productPageIndex[p.id] + 1}">
-                <img src="${p.imageUrl}" onerror="this.src='/assets/no-image.svg'" alt="${escapeHtml(p.name)}" />
+                <div class="image-frame">
+                  <img src="${p.imageUrl}" onerror="this.src='/assets/no-image.svg'" alt="${escapeHtml(p.name)}" />
+                  ${promoStampHtml(p.promoBadge)}
+                </div>
                 ${p.brand ? `<div class="brand-badge">${escapeHtml(p.brand)}</div>` : ''}
                 <div class="tile-name">${escapeHtml(p.name)}</div>
                 ${catalog.showPrice ? `
@@ -154,7 +157,10 @@ function pageHtml(pageData) {
       const p = pageData.product;
       return `
         <div class="page left product-detail">
-          <img class="hero" src="${p.imageUrl}" onerror="this.src='/assets/no-image.svg'" alt="${escapeHtml(p.name)}" />
+          <div class="image-frame">
+            <img class="hero" src="${p.imageUrl}" onerror="this.src='/assets/no-image.svg'" alt="${escapeHtml(p.name)}" />
+            ${promoStampHtml(p.promoBadge)}
+          </div>
           <h2>${escapeHtml(p.name)}</h2>
           <div class="brand-line">${p.brand ? escapeHtml(p.brand) : ''} ${p.productCode ? `· ${escapeHtml(p.productCode)}` : ''}</div>
           ${catalog.showPrice ? `
@@ -164,8 +170,10 @@ function pageHtml(pageData) {
             </div>` : ''}
           <table class="spec-table">
             <tr><th>상품구성</th><td>${escapeHtml(p.composition || '-')}</td></tr>
+            ${p.packaging ? `<tr><th>포장</th><td>${escapeHtml(p.packaging)}</td></tr>` : ''}
             ${p.origin ? `<tr><th>원산지</th><td>${escapeHtml(p.origin)}</td></tr>` : ''}
-            ${p.features ? `<tr><th>상품특징</th><td>${escapeHtml(p.features)}</td></tr>` : ''}
+            ${p.taxType ? `<tr><th>면세/과세</th><td>${escapeHtml(p.taxType)}</td></tr>` : ''}
+            ${p.features ? `<tr><th>규격</th><td>${escapeHtml(p.features)}</td></tr>` : ''}
             ${p.shippingInfo ? `<tr><th>배송안내</th><td>${escapeHtml(p.shippingInfo)}</td></tr>` : ''}
           </table>
           ${p.description ? `<div class="desc-block">${escapeHtml(p.description)}</div>` : ''}
@@ -190,6 +198,12 @@ function pageHtml(pageData) {
     default:
       return '<div class="page blank"></div>';
   }
+}
+
+function promoStampHtml(promoBadge) {
+  if (!promoBadge) return '';
+  const cls = promoBadge === '베스트' ? 'promo-stamp badge-best' : 'promo-stamp';
+  return `<div class="${cls}">${escapeHtml(promoBadge)}</div>`;
 }
 
 function escapeHtml(str) {

@@ -7,6 +7,7 @@ const cors = require('cors');
 const productRoutes = require('./routes/products');
 const catalogRoutes = require('./routes/catalogs');
 const quoteRoutes = require('./routes/quotes');
+const uploadRoutes = require('./routes/uploads');
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.get('/config.js', (req, res) => {
 app.use('/api/products', productRoutes);
 app.use('/api/catalogs', catalogRoutes);
 app.use('/api/quotes', quoteRoutes);
+app.use('/api/uploads', uploadRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 

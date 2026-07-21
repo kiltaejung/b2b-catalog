@@ -12,21 +12,24 @@
     <a href="index.html">홈</a>
     <a href="products.html">상품관리</a>
     <a href="catalogs.html" class="active">카탈로그 관리</a>
+    <a href="quotes.html">견적함</a>
   </nav>
   <div class="container">
     <h1>카탈로그 관리</h1>
 
     <div class="card">
-      <h2 style="margin-top:0">카탈로그 생성</h2>
+      <h2 id="formTitle" style="margin-top:0">카탈로그 생성</h2>
       <form id="catalogForm" class="form-grid">
+        <input type="hidden" id="catalogId" />
         <label>시즌명
           <input type="text" id="seasonName" placeholder="예: 2026 설 선물세트" />
         </label>
         <label>메인 타이틀 *
           <input type="text" id="mainTitle" required placeholder="예: 2026 설 선물세트 카다로그" />
         </label>
-        <label>회사 로고 URL
-          <input type="url" id="companyLogoUrl" />
+        <label>회사 로고
+          <input type="file" id="companyLogoFile" accept="image/png,image/jpeg,image/webp" />
+          <img id="companyLogoPreview" class="thumb" style="display:none; margin-top:0.3rem" />
         </label>
         <label>표지 대표 이미지 URL
           <input type="url" id="coverImageUrl" />
@@ -34,8 +37,9 @@
         <label>고객사명
           <input type="text" id="clientName" placeholder="고객사 전용 카탈로그인 경우 입력" />
         </label>
-        <label>고객사 로고 URL
-          <input type="url" id="clientLogoUrl" />
+        <label>고객사 로고
+          <input type="file" id="clientLogoFile" accept="image/png,image/jpeg,image/webp" />
+          <img id="clientLogoPreview" class="thumb" style="display:none; margin-top:0.3rem" />
         </label>
         <label class="checkbox-row" style="grid-column: 1 / -1">
           <input type="checkbox" id="showPrice" checked />
@@ -46,7 +50,8 @@
         </label>
         <div class="errors" id="catalogFormErrors" style="display:none; grid-column: 1 / -1"></div>
         <div class="toolbar" style="grid-column: 1 / -1">
-          <button type="submit">카탈로그 생성 (전체 상품 포함)</button>
+          <button type="submit" id="submitBtn">카탈로그 생성 (전체 상품 포함)</button>
+          <button type="button" class="secondary" id="cancelEditBtn" style="display:none">취소</button>
         </div>
       </form>
     </div>

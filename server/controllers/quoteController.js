@@ -60,6 +60,14 @@ async function createQuote(req, res) {
   }
 }
 
+async function listQuotes(req, res) {
+  const { rows } = await pool.query(
+    `SELECT id, catalog_id, customer_company, customer_name, customer_contact, total_amount, created_at
+     FROM quotes ORDER BY created_at DESC`
+  );
+  res.json({ quotes: rows });
+}
+
 async function getQuote(req, res) {
   const { rows: quoteRows } = await pool.query('SELECT * FROM quotes WHERE id = $1', [req.params.id]);
   if (!quoteRows.length) return res.status(404).json({ error: '견적서를 찾을 수 없습니다.' });
@@ -73,4 +81,4 @@ async function getQuote(req, res) {
   res.json({ quote: { ...quoteRows[0], items } });
 }
 
-module.exports = { createQuote, getQuote };
+module.exports = { createQuote, listQuotes, getQuote };

@@ -219,6 +219,32 @@ html, body {
 }
 .price-badge .original { color: #94a3b8; text-decoration: line-through; font-weight: 400; margin-right: 0.3rem; font-size: 0.7rem; }
 
+/* Promo stamp (강력추천 / 베스트) */
+.image-frame { position: relative; }
+.promo-stamp {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  background: rgba(255,255,255,0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.6rem;
+  text-align: center;
+  line-height: 1.1;
+  transform: rotate(-12deg);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  pointer-events: none;
+}
+.promo-stamp.badge-best { border-color: var(--band); color: var(--band); }
+.product-detail .image-frame .promo-stamp { width: 68px; height: 68px; font-size: 0.72rem; left: 10px; bottom: 10px; }
+
 /* Product detail page */
 .product-detail img.hero { width: 100%; height: 220px; object-fit: cover; border-radius: 8px; margin-bottom: 0.9rem; background: #f1f5f9; }
 .product-detail h2 { margin: 0 0 0.2rem; font-size: 1.15rem; }

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>견적함 - B2B 카탈로그 관리자</title>
+<link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+  <nav class="nav">
+    <strong>B2B 카탈로그 관리자</strong>
+    <a href="index.html">홈</a>
+    <a href="products.html">상품관리</a>
+    <a href="catalogs.html">카탈로그 관리</a>
+    <a href="quotes.html" class="active">견적함</a>
+  </nav>
+  <div class="container">
+    <h1>견적함</h1>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>견적번호</th>
+            <th>상호명</th>
+            <th>담당자</th>
+            <th>연락처</th>
+            <th>합계</th>
+            <th>작성일</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="quoteTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <script src="js/quotes.js"></script>
+</body>
+</html>

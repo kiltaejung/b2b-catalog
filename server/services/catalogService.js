@@ -31,10 +31,13 @@ function buildSnapshot(products, categoryOrder) {
         originalPrice: p.original_price,
         salePrice: p.sale_price,
         composition: p.composition,
+        packaging: p.packaging,
         origin: p.origin,
+        taxType: p.tax_type,
         features: p.features,
         description: p.description,
         shippingInfo: p.shipping_info,
+        promoBadge: p.promo_badge,
       })),
   }));
 }

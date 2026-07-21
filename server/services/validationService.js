@@ -1,4 +1,6 @@
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
+const VALID_TAX_TYPES = ['면세', '과세'];
+const VALID_PROMO_BADGES = ['강력추천', '베스트'];
 
 function isValidUrl(value) {
   try {
@@ -80,6 +82,16 @@ function validateRows(rows, existingCodes = new Set()) {
       }
     }
 
+    const taxType = row.tax_type ? String(row.tax_type).trim() : '';
+    if (taxType && !VALID_TAX_TYPES.includes(taxType)) {
+      rowErrors.push({ row: rowNumber, field: '면세/과세', message: '면세 또는 과세 중 하나여야 합니다.' });
+    }
+
+    const promoBadge = row.promo_badge ? String(row.promo_badge).trim() : '';
+    if (promoBadge && promoBadge !== '미선택' && !VALID_PROMO_BADGES.includes(promoBadge)) {
+      rowErrors.push({ row: rowNumber, field: '홍보특징', message: '강력추천, 베스트, 미선택 중 하나여야 합니다.' });
+    }
+
     if (rowErrors.length > 0) {
       errors.push(...rowErrors);
     } else {
@@ -93,10 +105,13 @@ function validateRows(rows, existingCodes = new Set()) {
         original_price: row.original_price !== undefined && row.original_price !== '' ? Number(row.original_price) : null,
         sale_price: Number(row.sale_price),
         composition: String(row.composition).trim(),
+        packaging: row.packaging ? String(row.packaging).trim() : null,
         origin: row.origin ? String(row.origin).trim() : null,
+        tax_type: taxType || null,
         features: row.features ? String(row.features).trim() : null,
         description: row.description ? String(row.description).trim() : null,
         shipping_info: row.shipping_info ? String(row.shipping_info).trim() : null,
+        promo_badge: promoBadge && promoBadge !== '미선택' ? promoBadge : null,
       });
     }
   });

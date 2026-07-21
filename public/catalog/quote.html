@@ -14,18 +14,20 @@
   .party-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem; }
   .party-box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.9rem 1rem; }
   .party-box h2 { font-size: 0.85rem; color: #64748b; margin: 0 0 0.6rem; letter-spacing: 0.05em; }
-  .party-row { display: flex; font-size: 0.85rem; padding: 0.2rem 0; }
+  .party-row { display: flex; font-size: 0.85rem; padding: 0.45rem 0; border-bottom: 1px solid #e2e8f0; }
+  .party-row:last-child { border-bottom: none; }
   .party-row .label { width: 72px; color: #64748b; flex-shrink: 0; }
   .party-row .value { display: flex; align-items: center; gap: 0.35rem; }
   img.stamp { height: 42px; mix-blend-mode: multiply; }
   table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
-  th, td { border: 1px solid #e2e8f0; padding: 0.55rem; text-align: left; font-size: 0.85rem; }
+  th, td { border: 1px solid #e2e8f0; padding: 0.55rem; text-align: center; font-size: 0.85rem; }
   th { background: #f8fafc; }
   td.num, th.num { text-align: right; }
-  td.img-cell img { width: 44px; height: 44px; object-fit: cover; border-radius: 4px; background: #f1f5f9; }
+  td.img-cell img { width: 88px; height: 88px; object-fit: cover; border-radius: 4px; background: #f1f5f9; }
   .total-row td { font-weight: 700; font-size: 1rem; }
   .bank-box { margin-top: 1.25rem; padding: 0.9rem 1rem; background: #f8fafc; border-radius: 8px; font-size: 0.85rem; }
   .bank-box strong { color: #1e3a8a; }
+  .bank-box .bank-line { padding: 0.15rem 0; }
   .print-btn { margin-top: 1.5rem; padding: 0.6rem 1.2rem; background: #1e3a8a; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
   @media print { .print-btn { display: none; } }
 </style>
@@ -60,7 +62,7 @@
     </thead>
     <tbody id="quoteItems"></tbody>
     <tfoot>
-      <tr class="total-row"><td colspan="5">합계</td><td class="num" id="quoteTotal"></td></tr>
+      <tr class="total-row"><td colspan="5" class="num">합계</td><td class="num" id="quoteTotal"></td></tr>
     </tfoot>
   </table>
 
@@ -98,10 +100,10 @@
       }
 
       document.getElementById('bankBox').innerHTML = `
-        <strong>결제 계좌 정보</strong><br />
-        예금주: ${escapeHtml(config.BANK_ACCOUNT_HOLDER || '-')} ·
-        거래은행: ${escapeHtml(config.BANK_NAME || '-')} ·
-        계좌번호: ${escapeHtml(config.BANK_ACCOUNT_NUMBER || '-')}
+        <strong>결제 계좌 정보</strong>
+        <div class="bank-line">예금주: ${escapeHtml(config.BANK_ACCOUNT_HOLDER || '-')}</div>
+        <div class="bank-line">거래은행: ${escapeHtml(config.BANK_NAME || '-')}</div>
+        <div class="bank-line">계좌번호: ${escapeHtml(config.BANK_ACCOUNT_NUMBER || '-')}</div>
       `;
     }
 

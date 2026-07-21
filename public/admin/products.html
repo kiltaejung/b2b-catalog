@@ -12,6 +12,7 @@
     <a href="index.html">홈</a>
     <a href="products.html" class="active">상품관리</a>
     <a href="catalogs.html">카탈로그 관리</a>
+    <a href="quotes.html">견적함</a>
   </nav>
   <div class="container">
     <h1>상품관리</h1>
@@ -41,6 +42,7 @@
             <th>상품명</th>
             <th>브랜드</th>
             <th>판매가</th>
+            <th>홍보특징</th>
             <th></th>
           </tr>
         </thead>
@@ -81,11 +83,28 @@
         <label>상품구성 *
           <input type="text" id="composition" required />
         </label>
+        <label>포장
+          <input type="text" id="packaging" />
+        </label>
         <label>원산지
           <input type="text" id="origin" />
         </label>
-        <label>상품특징
+        <label>면세/과세
+          <select id="tax_type">
+            <option value="">선택 안 함</option>
+            <option value="과세">과세</option>
+            <option value="면세">면세</option>
+          </select>
+        </label>
+        <label>규격
           <textarea id="features" rows="2"></textarea>
+        </label>
+        <label>홍보특징
+          <select id="promo_badge">
+            <option value="">미선택</option>
+            <option value="강력추천">강력추천</option>
+            <option value="베스트">베스트</option>
+          </select>
         </label>
         <label style="grid-column: 1 / -1">상품설명
           <textarea id="description" rows="3"></textarea>

@@ -11,10 +11,13 @@ CREATE TABLE IF NOT EXISTS products (
   original_price NUMERIC(12, 2),
   sale_price NUMERIC(12, 2) NOT NULL,
   composition VARCHAR(255) NOT NULL,
+  packaging VARCHAR(255),
   origin VARCHAR(255),
+  tax_type VARCHAR(20),
   features TEXT,
   description TEXT,
   shipping_info TEXT,
+  promo_badge VARCHAR(20),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -22,6 +25,11 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE INDEX IF NOT EXISTS idx_products_category ON products (category);
 CREATE INDEX IF NOT EXISTS idx_products_name ON products (name);
 CREATE INDEX IF NOT EXISTS idx_products_display_order ON products (display_order);
+
+-- Idempotent migrations for databases created before these columns existed.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS packaging VARCHAR(255);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS tax_type VARCHAR(20);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS promo_badge VARCHAR(20);
 
 CREATE TABLE IF NOT EXISTS catalogs (
   id SERIAL PRIMARY KEY,
@@ -50,6 +58,13 @@ CREATE TABLE IF NOT EXISTS quotes (
 
 -- Idempotent migration for databases created before customer_company existed.
 ALTER TABLE quotes ADD COLUMN IF NOT EXISTS customer_company VARCHAR(255);
+
+CREATE TABLE IF NOT EXISTS uploads (
+  id SERIAL PRIMARY KEY,
+  mime_type VARCHAR(100) NOT NULL,
+  data BYTEA NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 CREATE TABLE IF NOT EXISTS quote_items (
   id SERIAL PRIMARY KEY,

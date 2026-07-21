@@ -10,10 +10,13 @@ const HEADERS = [
   '정상가',
   '판매가',
   '상품구성',
+  '포장',
   '원산지',
-  '상품특징',
+  '면세/과세',
+  '규격',
   '상품설명',
   '배송안내',
+  '홍보특징',
 ];
 
 const HEADER_TO_FIELD = {
@@ -26,16 +29,19 @@ const HEADER_TO_FIELD = {
   '정상가': 'original_price',
   '판매가': 'sale_price',
   '상품구성': 'composition',
+  '포장': 'packaging',
   '원산지': 'origin',
-  '상품특징': 'features',
+  '면세/과세': 'tax_type',
+  '규격': 'features',
   '상품설명': 'description',
   '배송안내': 'shipping_info',
+  '홍보특징': 'promo_badge',
 };
 
 function buildTemplateBuffer() {
   const worksheet = XLSX.utils.aoa_to_sheet([
     HEADERS,
-    [1, '과일', 'FRUIT-001', '예시 상품명', '예시 브랜드', 'https://example.com/image.jpg', 20000, 15000, '1box (10입)', '국산', '당도 선별', '상품 설명 예시', '택배 배송 (2~3일 소요)'],
+    [1, '과일', 'FRUIT-001', '예시 상품명', '예시 브랜드', 'https://example.com/image.jpg', 20000, 15000, '1box (10입)', '골판지 박스', '국산', '과세', '10kg', '상품 설명 예시', '택배 배송 (2~3일 소요)', '강력추천'],
   ]);
   worksheet['!cols'] = HEADERS.map(() => ({ wch: 20 }));
   const workbook = XLSX.utils.book_new();
