@@ -1,4 +1,4 @@
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 
 const HEADERS = [
   '노출순서',
@@ -38,33 +38,57 @@ const HEADER_TO_FIELD = {
   '홍보특징': 'promo_badge',
 };
 
-function buildTemplateBuffer() {
-  const worksheet = XLSX.utils.aoa_to_sheet([
-    HEADERS,
-    [1, '과일', 'FRUIT-001', '예시 상품명', '예시 브랜드', 'https://example.com/image.jpg', 20000, 15000, '1box (10입)', '골판지 박스', '국산', '과세', '10kg', '상품 설명 예시', '택배 배송 (2~3일 소요)', '강력추천'],
-  ]);
-  worksheet['!cols'] = HEADERS.map(() => ({ wch: 20 }));
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, '상품등록양식');
-  return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+const EXAMPLE_ROW = [1, '과일', 'FRUIT-001', '예시 상품명', '예시 브랜드', 'https://example.com/image.jpg', 20000, 15000, '1box (10입)', '골판지 박스', '국산', '과세', '10kg', '상품 설명 예시', '택배 배송 (2~3일 소요)', '강력추천'];
+
+async function buildTemplateBuffer() {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('상품등록양식');
+  sheet.columns = HEADERS.map((header) => ({ header, width: 20 }));
+  sheet.addRow(EXAMPLE_ROW);
+  sheet.getRow(1).font = { bold: true };
+  return workbook.xlsx.writeBuffer();
 }
 
-function parseWorkbookBuffer(buffer) {
-  const workbook = XLSX.read(buffer, { type: 'buffer' });
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const raw = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: true });
+function cellText(cell) {
+  const value = cell.value;
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') {
+    if ('result' in value) return value.result ?? '';
+    if ('text' in value) return value.text ?? '';
+    if ('richText' in value) return value.richText.map((part) => part.text).join('');
+  }
+  return value;
+}
 
-  return raw.map((row) => {
-    const mapped = {};
-    Object.entries(row).forEach(([header, value]) => {
-      const field = HEADER_TO_FIELD[header.trim()];
-      if (field) {
-        mapped[field] = typeof value === 'string' ? value.trim() : value;
-      }
-    });
-    return mapped;
+async function parseWorkbookBuffer(buffer) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const sheet = workbook.worksheets[0];
+  if (!sheet) return [];
+
+  const headerRow = sheet.getRow(1);
+  const columnFields = [];
+  headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    const header = String(cellText(cell) || '').trim();
+    columnFields[colNumber] = HEADER_TO_FIELD[header];
   });
+
+  const rows = [];
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+    const mapped = {};
+    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      const field = columnFields[colNumber];
+      if (!field) return;
+      const value = cellText(cell);
+      mapped[field] = typeof value === 'string' ? value.trim() : value;
+    });
+    if (Object.values(mapped).some((v) => v !== '' && v !== undefined && v !== null)) {
+      rows.push(mapped);
+    }
+  });
+
+  return rows;
 }
 
 module.exports = { buildTemplateBuffer, parseWorkbookBuffer, HEADERS, HEADER_TO_FIELD };

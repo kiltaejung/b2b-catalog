@@ -1,9 +1,9 @@
 const pool = require('../config/db');
 const { buildTemplateBuffer, parseWorkbookBuffer } = require('../services/excelService');
 const { validateRows } = require('../services/validationService');
+const { buildProductExportWorkbook, buildExportFilename, buildExportFilenameAscii } = require('../services/exportService');
 
-async function listProducts(req, res) {
-  const { search, category } = req.query;
+function buildFilterClause({ search, category, minPrice, maxPrice }) {
   const clauses = [];
   const params = [];
 
@@ -15,8 +15,25 @@ async function listProducts(req, res) {
     params.push(category);
     clauses.push(`category = $${params.length}`);
   }
+  if (minPrice !== undefined && minPrice !== null && minPrice !== '') {
+    params.push(Number(minPrice));
+    clauses.push(`sale_price >= $${params.length}`);
+  }
+  if (maxPrice !== undefined && maxPrice !== null && maxPrice !== '') {
+    params.push(Number(maxPrice));
+    clauses.push(`sale_price <= $${params.length}`);
+  }
 
-  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+  return {
+    where: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '',
+    params,
+  };
+}
+
+async function listProducts(req, res) {
+  const { search, category, minPrice, maxPrice } = req.query;
+  const { where, params } = buildFilterClause({ search, category, minPrice, maxPrice });
+
   const { rows } = await pool.query(
     `SELECT * FROM products ${where} ORDER BY category, display_order, id`,
     params
@@ -77,9 +94,32 @@ async function deleteProduct(req, res) {
 }
 
 async function downloadTemplate(req, res) {
-  const buffer = buildTemplateBuffer();
+  const buffer = await buildTemplateBuffer();
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', 'attachment; filename="product-upload-template.xlsx"');
+  res.send(buffer);
+}
+
+async function exportProducts(req, res) {
+  const { search, category, minPrice, maxPrice } = req.query;
+  const isFiltered = Boolean(search || category || minPrice || maxPrice);
+  const { where, params } = buildFilterClause({ search, category, minPrice, maxPrice });
+
+  const { rows } = await pool.query(
+    `SELECT * FROM products ${where} ORDER BY category, display_order, id`,
+    params
+  );
+
+  const buffer = await buildProductExportWorkbook(rows);
+  const filename = buildExportFilename(isFiltered);
+  const asciiFilename = buildExportFilenameAscii(isFiltered);
+  const encodedFilename = encodeURIComponent(filename);
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`
+  );
   res.send(buffer);
 }
 
@@ -88,7 +128,7 @@ async function uploadProducts(req, res) {
 
   let rows;
   try {
-    rows = parseWorkbookBuffer(req.file.buffer);
+    rows = await parseWorkbookBuffer(req.file.buffer);
   } catch {
     return res.status(400).json({ error: '엑셀 파일을 읽을 수 없습니다. 양식을 확인해주세요.' });
   }
@@ -149,5 +189,6 @@ module.exports = {
   updateProduct,
   deleteProduct,
   downloadTemplate,
+  exportProducts,
   uploadProducts,
 };

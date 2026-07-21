@@ -380,7 +380,50 @@ function runSearch() {
   searchResults.classList.add('open');
 }
 
+// Result count + excel export of the currently queried products (live DB,
+// not just the catalog snapshot), per the "조회 상품 엑셀 다운로드" feature.
+const resultCountText = document.getElementById('resultCountText');
+const btnExportExcel = document.getElementById('btnExportExcel');
+let exportQueryString = '';
+let exportDebounceTimer = null;
+
+function currentFilterParams() {
+  const params = new URLSearchParams();
+  const q = searchInput.value.trim();
+  if (q) params.set('search', q);
+  if (state.budgetFilter) {
+    if (state.budgetFilter.min !== null) params.set('minPrice', state.budgetFilter.min);
+    if (state.budgetFilter.max !== null) params.set('maxPrice', state.budgetFilter.max);
+  }
+  return params;
+}
+
+async function updateExportUI() {
+  const params = currentFilterParams();
+  const isFiltered = params.toString() !== '';
+  exportQueryString = params.toString();
+  btnExportExcel.textContent = isFiltered ? '조회 상품 엑셀 다운로드' : '전체 상품 엑셀 다운로드';
+
+  try {
+    const res = await fetch(`/api/products?${exportQueryString}`);
+    const data = await res.json();
+    resultCountText.textContent = `조회 결과: ${(data.products || []).length}개`;
+  } catch {
+    resultCountText.textContent = '조회 결과: -';
+  }
+}
+
+function scheduleExportUIUpdate() {
+  clearTimeout(exportDebounceTimer);
+  exportDebounceTimer = setTimeout(updateExportUI, 300);
+}
+
+btnExportExcel.addEventListener('click', () => {
+  window.location.href = `/api/products/export?${exportQueryString}`;
+});
+
 searchInput.addEventListener('input', runSearch);
+searchInput.addEventListener('input', scheduleExportUIUpdate);
 
 btnBudgetSearch.addEventListener('click', () => {
   const min = parseBudgetValue(budgetMin);
@@ -393,6 +436,7 @@ btnBudgetSearch.addEventListener('click', () => {
   budgetError.style.display = 'none';
   state.budgetFilter = (min !== null || max !== null) ? { min, max } : null;
   runSearch();
+  updateExportUI();
 });
 
 btnBudgetReset.addEventListener('click', () => {
@@ -401,6 +445,7 @@ btnBudgetReset.addEventListener('click', () => {
   budgetError.style.display = 'none';
   state.budgetFilter = null;
   runSearch();
+  updateExportUI();
 });
 
 searchResults.addEventListener('click', (e) => {
@@ -613,6 +658,7 @@ async function init() {
     const initialPage = Number(params.get('page')) || 1;
     goToPage(initialPage);
     renderCart();
+    updateExportUI();
     initKakaoSdk();
     loadingScreen.classList.add('hidden');
   } catch (err) {
