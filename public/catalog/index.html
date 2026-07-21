@@ -15,6 +15,15 @@
     <div class="toolbar-center">
       <div class="search-box">
         <input type="text" id="searchInput" placeholder="상품명 / 상품코드 / 카테고리 검색" autocomplete="off" />
+        <div class="budget-row">
+          <span class="budget-label">예산</span>
+          <input type="text" id="budgetMin" inputmode="numeric" placeholder="최소 금액" />
+          <span class="tilde">~</span>
+          <input type="text" id="budgetMax" inputmode="numeric" placeholder="최대 금액" />
+          <button id="btnBudgetSearch" class="icon-btn" type="button">조회</button>
+          <button id="btnBudgetReset" class="icon-btn" type="button">초기화</button>
+        </div>
+        <div id="budgetError" class="budget-error" style="display:none"></div>
         <div id="searchResults" class="search-results"></div>
       </div>
     </div>

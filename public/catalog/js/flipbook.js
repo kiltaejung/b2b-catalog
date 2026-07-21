@@ -81,6 +81,7 @@ function buildSearchIndex(catalog) {
         productCode: p.productCode,
         category: catEntry.category,
         imageUrl: p.imageUrl,
+        salePrice: Number(p.salePrice),
       });
     });
   });
@@ -316,36 +317,90 @@ document.getElementById('btnZoomReset').addEventListener('click', () => {
   applyZoom();
 });
 
-// Search
+// Search (text + budget range)
 const searchInput = document.getElementById('searchInput');
 const searchResults = document.getElementById('searchResults');
+const budgetMin = document.getElementById('budgetMin');
+const budgetMax = document.getElementById('budgetMax');
+const budgetError = document.getElementById('budgetError');
+const btnBudgetSearch = document.getElementById('btnBudgetSearch');
+const btnBudgetReset = document.getElementById('btnBudgetReset');
 
-searchInput.addEventListener('input', () => {
+state.budgetFilter = null; // { min: number|null, max: number|null }
+
+function formatBudgetInput(el) {
+  const digits = el.value.replace(/[^0-9]/g, '');
+  el.value = digits ? Number(digits).toLocaleString() : '';
+}
+
+function parseBudgetValue(el) {
+  const digits = el.value.replace(/[^0-9]/g, '');
+  return digits ? Number(digits) : null;
+}
+
+budgetMin.addEventListener('input', () => formatBudgetInput(budgetMin));
+budgetMax.addEventListener('input', () => formatBudgetInput(budgetMax));
+
+function runSearch() {
   const q = searchInput.value.trim().toLowerCase();
-  if (!q) {
+  const budget = state.budgetFilter;
+
+  if (!q && !budget) {
     searchResults.classList.remove('open');
     searchResults.innerHTML = '';
     return;
   }
-  const matches = state.searchIndex.filter((item) =>
-    item.name.toLowerCase().includes(q) ||
-    (item.productCode || '').toLowerCase().includes(q) ||
-    item.category.toLowerCase().includes(q)
-  ).slice(0, 20);
+
+  const matches = state.searchIndex.filter((item) => {
+    const textOk = !q ||
+      item.name.toLowerCase().includes(q) ||
+      (item.productCode || '').toLowerCase().includes(q) ||
+      item.category.toLowerCase().includes(q);
+    if (!textOk) return false;
+    if (budget) {
+      if (budget.min !== null && item.salePrice < budget.min) return false;
+      if (budget.max !== null && item.salePrice > budget.max) return false;
+    }
+    return true;
+  }).slice(0, 50);
 
   if (!matches.length) {
-    searchResults.innerHTML = '<div class="search-result-item">검색 결과가 없습니다.</div>';
+    const message = budget ? '입력하신 예산 범위에 해당하는 상품이 없습니다.' : '검색 결과가 없습니다.';
+    searchResults.innerHTML = `<div class="no-results">${message}</div>`;
   } else {
     searchResults.innerHTML = matches.map((m) => `
       <div class="search-result-item" data-goto="${state.productPageIndex[m.id] + 1}">
         <img src="${m.imageUrl}" onerror="this.src='/assets/no-image.svg'" />
         <div>
           <div>${escapeHtml(m.name)}</div>
-          <div style="color:#94a3b8">${escapeHtml(m.category)} · ${escapeHtml(m.productCode || '')}</div>
+          <div style="color:#94a3b8">${escapeHtml(m.category)} · ${escapeHtml(m.productCode || '')} · ${formatPrice(m.salePrice)}</div>
         </div>
       </div>`).join('');
   }
   searchResults.classList.add('open');
+}
+
+searchInput.addEventListener('input', runSearch);
+
+btnBudgetSearch.addEventListener('click', () => {
+  const min = parseBudgetValue(budgetMin);
+  const max = parseBudgetValue(budgetMax);
+  if (min !== null && max !== null && min > max) {
+    budgetError.textContent = '최소 금액이 최대 금액보다 클 수 없습니다.';
+    budgetError.style.display = '';
+    return;
+  }
+  budgetError.style.display = 'none';
+  state.budgetFilter = (min !== null || max !== null) ? { min, max } : null;
+  runSearch();
+});
+
+btnBudgetReset.addEventListener('click', () => {
+  budgetMin.value = '';
+  budgetMax.value = '';
+  budgetError.style.display = 'none';
+  state.budgetFilter = null;
+  runSearch();
 });
 
 searchResults.addEventListener('click', (e) => {
@@ -353,7 +408,6 @@ searchResults.addEventListener('click', (e) => {
   if (!el) return;
   goToPage(Number(el.dataset.goto));
   searchResults.classList.remove('open');
-  searchInput.value = '';
 });
 
 document.addEventListener('click', (e) => {
@@ -528,6 +582,17 @@ document.getElementById('btnShare').addEventListener('click', () => {
     },
   });
 });
+
+// Keep the book viewport clear of the toolbar even as it grows to two rows
+// (budget filter row) or wraps on narrow screens.
+function syncToolbarHeight() {
+  const toolbar = document.querySelector('.toolbar');
+  if (toolbar) {
+    document.documentElement.style.setProperty('--toolbar-h', `${toolbar.offsetHeight}px`);
+  }
+}
+window.addEventListener('resize', syncToolbarHeight);
+syncToolbarHeight();
 
 // Init
 async function init() {
