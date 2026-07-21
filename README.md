@@ -18,6 +18,18 @@ npm run db:init         # PostgreSQL 스키마 생성
 npm run dev              # http://localhost:3000
 ```
 
+## Render로 배포하기
+
+저장소 루트의 `render.yaml`(Blueprint)로 웹서비스 + PostgreSQL을 한 번에 배포할 수 있습니다.
+
+1. [Render 대시보드](https://dashboard.render.com) → **New +** → **Blueprint**
+2. `kiltaejung/b2b-catalog` 저장소 연결 후 `claude/b2b-catalog-system-c47k2u` 브랜치 선택
+3. Render가 `render.yaml`을 읽어 `b2b-catalog`(웹서비스)와 `b2b-catalog-db`(PostgreSQL, free plan)를 자동 생성
+4. 배포 완료 후 `b2b-catalog` 서비스 환경변수에서 `KAKAO_JS_KEY`(카카오톡 공유용, 선택)를 입력
+5. 서비스 시작 시 `npm run db:init`이 자동 실행되어 스키마가 생성되고, 이후 `/admin/index.html`에서 바로 사용 가능
+
+무료 플랜은 일정 시간 미사용 시 슬립되며 첫 요청 시 재시작에 시간이 걸릴 수 있고, 무료 PostgreSQL은 생성 후 90일 뒤 만료됩니다.
+
 ## 폴더 구조
 
 ```
