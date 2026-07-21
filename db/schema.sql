@@ -42,9 +42,13 @@ CREATE TABLE IF NOT EXISTS catalogs (
   client_logo_url TEXT,
   category_order JSONB NOT NULL DEFAULT '[]',
   product_snapshot JSONB NOT NULL DEFAULT '[]',
+  max_zoom NUMERIC(3, 1) NOT NULL DEFAULT 3,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Idempotent migration for catalogs created before max_zoom existed.
+ALTER TABLE catalogs ADD COLUMN IF NOT EXISTS max_zoom NUMERIC(3, 1) NOT NULL DEFAULT 3;
 
 CREATE TABLE IF NOT EXISTS quotes (
   id SERIAL PRIMARY KEY,

@@ -32,10 +32,8 @@
       </div>
     </div>
     <div class="toolbar-right">
-      <button id="btnZoomOut" class="icon-btn" type="button" title="축소">－</button>
-      <button id="btnZoomReset" class="icon-btn" type="button" title="원래 크기">100%</button>
-      <button id="btnZoomIn" class="icon-btn" type="button" title="확대">＋</button>
-      <button id="btnShare" class="icon-btn" type="button" title="카카오톡 공유">공유</button>
+      <button id="btnShare" class="icon-btn" type="button" title="공유">🔗 <span class="icon-btn-label">공유</span></button>
+      <button id="btnHelp" class="icon-btn" type="button" title="도움말">❓ <span class="icon-btn-label">도움말</span></button>
     </div>
   </header>
 
@@ -45,16 +43,117 @@
     </div>
   </main>
 
-  <footer class="nav-bar">
+  <!-- Slim on-demand overlay bars (page nav slider / zoom controls) -->
+  <div id="pageNavBar" class="float-bar">
     <button id="btnFirst" class="nav-btn" type="button" title="처음 페이지">⏮</button>
     <button id="btnPrev" class="nav-btn" type="button" title="이전 페이지">◀</button>
-    <div class="page-indicator">
-      <input type="number" id="pageInput" min="1" value="1" />
-      <span>/ <span id="totalPages">1</span></span>
-    </div>
+    <input type="range" id="pageSlider" class="page-slider" min="1" max="1" value="1" />
+    <div class="page-indicator"><span id="pageCurrentText">1</span> / <span id="totalPages">1</span></div>
     <button id="btnNext" class="nav-btn" type="button" title="다음 페이지">▶</button>
     <button id="btnLast" class="nav-btn" type="button" title="마지막 페이지">⏭</button>
-  </footer>
+  </div>
+
+  <div id="zoomBar" class="float-bar">
+    <button id="btnZoomOut" class="icon-btn" type="button" title="축소">－</button>
+    <span id="zoomLevelText" class="zoom-level">100%</span>
+    <button id="btnZoomIn" class="icon-btn" type="button" title="확대">＋</button>
+    <button id="btnZoomReset" class="icon-btn" type="button" title="원래 크기">원래대로</button>
+  </div>
+
+  <!-- Fixed bottom icon bar -->
+  <nav class="bottom-bar">
+    <button id="btnThumbnail" class="bottom-bar-btn" type="button">
+      <span class="bb-icon">▦</span><span class="bb-label">썸네일</span>
+    </button>
+    <button id="btnToc" class="bottom-bar-btn" type="button">
+      <span class="bb-icon">☰</span><span class="bb-label">목차</span>
+    </button>
+    <button id="btnPageNavToggle" class="bottom-bar-btn" type="button">
+      <span class="bb-icon">⇔</span><span class="bb-label">페이지</span>
+    </button>
+    <button id="btnZoomToggle" class="bottom-bar-btn" type="button">
+      <span class="bb-icon">🔍</span><span class="bb-label">확대</span>
+    </button>
+    <button id="btnMore" class="bottom-bar-btn" type="button">
+      <span class="bb-icon">⋯</span><span class="bb-label">더보기</span>
+    </button>
+  </nav>
+
+  <!-- Shared backdrop for bottom sheets -->
+  <div id="sheetOverlay" class="sheet-overlay"></div>
+
+  <div id="shareSheet" class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <h3>공유하기</h3>
+    <div class="sheet-grid">
+      <button class="sheet-action" type="button" data-share="kakao"><span class="sheet-action-icon">💬</span>카카오톡</button>
+      <button class="sheet-action" type="button" data-share="email"><span class="sheet-action-icon">✉️</span>이메일</button>
+      <button class="sheet-action" type="button" data-share="copy"><span class="sheet-action-icon">🔗</span>링크 복사</button>
+      <button class="sheet-action" type="button" data-share="qr"><span class="sheet-action-icon">▦</span>QR코드</button>
+    </div>
+    <div id="qrContainer" class="qr-container" style="display:none"></div>
+  </div>
+
+  <div id="helpSheet" class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <h3>사용 방법</h3>
+    <ul class="help-list">
+      <li>좌우 화면 터치: 이전 / 다음 페이지로 이동합니다.</li>
+      <li>스와이프: 화면을 좌우로 밀어서 페이지를 넘길 수 있습니다.</li>
+      <li>확대: 하단 확대 아이콘, 더블탭, 또는 모바일에서 두 손가락 핀치로 확대합니다.</li>
+      <li>썸네일 보기: 하단 첫 번째 아이콘으로 전체 페이지를 한눈에 봅니다.</li>
+      <li>목차 보기: 하단 두 번째 아이콘으로 카테고리별 페이지로 바로 이동합니다.</li>
+    </ul>
+    <button class="sheet-close-btn" type="button" data-close-sheet>닫기</button>
+  </div>
+
+  <div id="moreSheet" class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <h3>더보기</h3>
+    <button class="sheet-list-item" type="button" data-more="settings">⚙️ 설정</button>
+    <button class="sheet-list-item" type="button" data-more="fullscreen">⛶ 전체화면</button>
+    <button class="sheet-list-item" type="button" data-more="pdf">⬇️ 다운로드 (PDF)</button>
+    <button class="sheet-list-item" type="button" data-more="print">🖨️ 인쇄</button>
+  </div>
+
+  <div id="settingsSheet" class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <h3>설정</h3>
+    <div class="settings-row">
+      <span>다크 모드</span>
+      <label class="switch"><input type="checkbox" id="settingDarkMode" /><span class="switch-track"></span></label>
+    </div>
+    <div class="settings-row">
+      <span>페이지 넘김 애니메이션</span>
+      <label class="switch"><input type="checkbox" id="settingPageAnim" checked /><span class="switch-track"></span></label>
+    </div>
+    <div class="settings-row">
+      <span>자동 맞춤</span>
+      <label class="switch"><input type="checkbox" id="settingAutoFit" checked /><span class="switch-track"></span></label>
+    </div>
+    <button class="sheet-list-item" type="button" id="btnRotationLock">🔒 화면 회전 잠금</button>
+    <button class="sheet-close-btn" type="button" data-close-sheet>닫기</button>
+  </div>
+
+  <div id="thumbnailSheet" class="bottom-sheet bottom-sheet-tall">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header-row">
+      <h3>썸네일</h3>
+      <input type="text" id="thumbnailSearch" placeholder="페이지 번호 또는 상품명 검색" />
+      <button class="icon-btn sheet-close-icon" type="button" data-close-sheet>✕</button>
+    </div>
+    <div id="thumbnailGrid" class="thumbnail-grid"></div>
+  </div>
+
+  <div id="tocSheet" class="bottom-sheet bottom-sheet-tall">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header-row">
+      <h3>목차</h3>
+      <input type="text" id="tocSearch" placeholder="카테고리 검색" />
+      <button class="icon-btn sheet-close-icon" type="button" data-close-sheet>✕</button>
+    </div>
+    <ul id="tocPanelList" class="toc-panel-list"></ul>
+  </div>
 
   <aside id="cartDrawer" class="cart-drawer">
     <div class="cart-header">
@@ -73,6 +172,8 @@
   <div id="cartOverlay" class="cart-overlay"></div>
 
   <div id="loadingScreen" class="loading-screen">카탈로그를 불러오는 중...</div>
+
+  <div id="printContainer" class="print-only"></div>
 
   <script src="js/flipbook.js"></script>
 </body>

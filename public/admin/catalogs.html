@@ -48,6 +48,9 @@
         <label style="grid-column: 1 / -1">카테고리 노출 순서 (쉼표로 구분, 비우면 자동)
           <input type="text" id="categoryOrder" placeholder="예: 과일,건강식품,스팸,참치,한우,생활용품" />
         </label>
+        <label>최대 확대 배율 (1.5 ~ 6배)
+          <input type="number" id="maxZoom" min="1.5" max="6" step="0.5" value="3" />
+        </label>
         <div class="errors" id="catalogFormErrors" style="display:none; grid-column: 1 / -1"></div>
         <div class="toolbar" style="grid-column: 1 / -1">
           <button type="submit" id="submitBtn">카탈로그 생성 (전체 상품 포함)</button>

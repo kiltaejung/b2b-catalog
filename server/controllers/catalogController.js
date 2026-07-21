@@ -1,6 +1,16 @@
 const pool = require('../config/db');
 const { buildSnapshot, resolveCategoryOrder, toViewModel } = require('../services/catalogService');
 
+const DEFAULT_MAX_ZOOM = 3;
+const MIN_ALLOWED_ZOOM = 1.5;
+const MAX_ALLOWED_ZOOM = 6;
+
+function normalizeMaxZoom(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return DEFAULT_MAX_ZOOM;
+  return Math.min(MAX_ALLOWED_ZOOM, Math.max(MIN_ALLOWED_ZOOM, num));
+}
+
 async function listCatalogs(req, res) {
   const { rows } = await pool.query(
     `SELECT id, main_title, season_name, client_name, show_price, created_at
@@ -40,6 +50,7 @@ async function createCatalog(req, res) {
     clientLogoUrl,
     categoryOrder,
     productIds,
+    maxZoom,
   } = req.body;
 
   if (!mainTitle) {
@@ -53,8 +64,8 @@ async function createCatalog(req, res) {
 
   const { rows } = await pool.query(
     `INSERT INTO catalogs
-      (season_name, main_title, company_logo_url, cover_image_url, show_price, client_name, client_logo_url, category_order, product_snapshot)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      (season_name, main_title, company_logo_url, cover_image_url, show_price, client_name, client_logo_url, category_order, product_snapshot, max_zoom)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      RETURNING *`,
     [
       seasonName || null,
@@ -66,6 +77,7 @@ async function createCatalog(req, res) {
       clientLogoUrl || null,
       JSON.stringify(result.resolvedOrder),
       JSON.stringify(result.snapshot),
+      normalizeMaxZoom(maxZoom),
     ]
   );
   res.status(201).json({ catalog: toViewModel(rows[0]) });
@@ -82,6 +94,7 @@ async function updateCatalog(req, res) {
     clientLogoUrl,
     categoryOrder,
     productIds,
+    maxZoom,
   } = req.body;
 
   if (!mainTitle) {
@@ -96,8 +109,8 @@ async function updateCatalog(req, res) {
   const { rows } = await pool.query(
     `UPDATE catalogs SET
       season_name=$1, main_title=$2, company_logo_url=$3, cover_image_url=$4, show_price=$5,
-      client_name=$6, client_logo_url=$7, category_order=$8, product_snapshot=$9, updated_at=now()
-     WHERE id=$10 RETURNING *`,
+      client_name=$6, client_logo_url=$7, category_order=$8, product_snapshot=$9, max_zoom=$10, updated_at=now()
+     WHERE id=$11 RETURNING *`,
     [
       seasonName || null,
       mainTitle,
@@ -108,6 +121,7 @@ async function updateCatalog(req, res) {
       clientLogoUrl || null,
       JSON.stringify(result.resolvedOrder),
       JSON.stringify(result.snapshot),
+      normalizeMaxZoom(maxZoom),
       req.params.id,
     ]
   );

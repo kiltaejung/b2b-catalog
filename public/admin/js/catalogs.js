@@ -53,6 +53,7 @@ function resetToCreateMode() {
   catalogForm.reset();
   document.getElementById('catalogId').value = '';
   document.getElementById('showPrice').checked = true;
+  document.getElementById('maxZoom').value = 3;
   existingCompanyLogoUrl = null;
   existingClientLogoUrl = null;
   setPreview(companyLogoPreview, null);
@@ -78,6 +79,7 @@ async function enterEditMode(catalogId) {
   document.getElementById('clientName').value = c.clientName || '';
   document.getElementById('showPrice').checked = Boolean(c.showPrice);
   document.getElementById('categoryOrder').value = (c.categories || []).map((cat) => cat.category).join(',');
+  document.getElementById('maxZoom').value = c.maxZoom || 3;
 
   existingCompanyLogoUrl = c.companyLogoUrl || null;
   existingClientLogoUrl = c.clientLogoUrl || null;
@@ -159,6 +161,7 @@ catalogForm.addEventListener('submit', async (e) => {
     clientLogoUrl,
     showPrice: document.getElementById('showPrice').checked,
     categoryOrder: categoryOrderRaw ? categoryOrderRaw.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
+    maxZoom: Number(document.getElementById('maxZoom').value) || 3,
   };
 
   const catalogId = document.getElementById('catalogId').value;

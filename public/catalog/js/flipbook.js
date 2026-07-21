@@ -6,22 +6,47 @@ const state = {
   pages: [],
   productPageIndex: {},
   searchIndex: [],
+  tocEntries: [],
   currentSpreadIndex: 0,
   currentMobilePage: 0,
   zoom: 1,
+  panX: 0,
+  panY: 0,
+  budgetFilter: null,
+  settings: {
+    darkMode: true,
+    pageAnimation: true,
+    autoFit: true,
+  },
 };
 
 const params = new URLSearchParams(window.location.search);
 const catalogId = params.get('id');
 
+const bookViewport = document.getElementById('bookViewport');
 const bookSpread = document.getElementById('bookSpread');
 const bookStage = document.getElementById('bookStage');
-const pageInput = document.getElementById('pageInput');
+const pageSlider = document.getElementById('pageSlider');
+const pageCurrentText = document.getElementById('pageCurrentText');
 const totalPagesEl = document.getElementById('totalPages');
 const loadingScreen = document.getElementById('loadingScreen');
 
+// PC always shows a two-page spread; mobile always shows one page; tablets
+// show a spread only in landscape orientation ("상황에 따라 양면/단면").
 function isDesktop() {
-  return window.matchMedia('(min-width: 861px)').matches;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  if (w >= 1024) return true;
+  if (w < 768) return false;
+  return w > h; // tablet: landscape = spread, portrait = single page
+}
+
+function getMaxZoom() {
+  return (state.catalog && state.catalog.maxZoom) || 3;
+}
+
+function clampZoom(z) {
+  return Math.min(getMaxZoom(), Math.max(0.6, z));
 }
 
 function chunkArray(arr, size) {
@@ -63,12 +88,13 @@ function buildPages(catalog) {
 
   pages.push({ type: 'back' });
 
-  pages[tocPageIndex].entries = catalog.categories.map((c) => ({
+  const tocEntries = catalog.categories.map((c) => ({
     category: c.category,
     page: categoryStartPage[c.category] + 1,
   }));
+  pages[tocPageIndex].entries = tocEntries;
 
-  return { pages, productPageIndex };
+  return { pages, productPageIndex, tocEntries };
 }
 
 function buildSearchIndex(catalog) {
@@ -220,6 +246,17 @@ function maxSpreadIndex() {
   return Math.floor(state.pages.length / 2);
 }
 
+function currentLogicalPage() {
+  const total = state.pages.length;
+  if (isDesktop()) {
+    const s = state.currentSpreadIndex;
+    const leftIndex = 2 * s - 1;
+    const rightIndex = 2 * s;
+    return (rightIndex < total ? rightIndex : leftIndex) + 1;
+  }
+  return Math.min(Math.max(state.currentMobilePage, 0), total - 1) + 1;
+}
+
 function renderSpread() {
   const total = state.pages.length;
   if (isDesktop()) {
@@ -229,14 +266,18 @@ function renderSpread() {
     const leftPage = leftIndex >= 0 && leftIndex < total ? state.pages[leftIndex] : null;
     const rightPage = rightIndex < total ? state.pages[rightIndex] : null;
     bookSpread.innerHTML = pageHtml(leftPage) + pageHtml(rightPage);
-    const shown = rightPage ? rightIndex + 1 : leftIndex + 1;
-    pageInput.value = shown;
   } else {
     const idx = Math.min(Math.max(state.currentMobilePage, 0), total - 1);
     bookSpread.innerHTML = pageHtml(state.pages[idx]);
-    pageInput.value = idx + 1;
   }
+  const shown = currentLogicalPage();
+  pageCurrentText.textContent = shown;
   totalPagesEl.textContent = total;
+  pageSlider.min = 1;
+  pageSlider.max = total;
+  pageSlider.value = shown;
+  resetPan();
+  if (state.settings.autoFit) setZoom(1, false);
 }
 
 function goToPage(oneBasedIndex) {
@@ -250,22 +291,43 @@ function goToPage(oneBasedIndex) {
   renderSpread();
 }
 
-function next() {
-  if (isDesktop()) {
-    state.currentSpreadIndex = Math.min(state.currentSpreadIndex + 1, maxSpreadIndex());
-  } else {
-    state.currentMobilePage = Math.min(state.currentMobilePage + 1, state.pages.length - 1);
+function animatedStep(direction, updateFn) {
+  if (!state.settings.pageAnimation) {
+    updateFn();
+    renderSpread();
+    return;
   }
-  renderSpread();
+  const pageEls = bookSpread.querySelectorAll('.page');
+  if (!pageEls.length) {
+    updateFn();
+    renderSpread();
+    return;
+  }
+  pageEls.forEach((p) => p.classList.add(direction > 0 ? 'turning-next' : 'turning-prev'));
+  setTimeout(() => {
+    updateFn();
+    renderSpread();
+  }, 420);
+}
+
+function next() {
+  animatedStep(1, () => {
+    if (isDesktop()) {
+      state.currentSpreadIndex = Math.min(state.currentSpreadIndex + 1, maxSpreadIndex());
+    } else {
+      state.currentMobilePage = Math.min(state.currentMobilePage + 1, state.pages.length - 1);
+    }
+  });
 }
 
 function prev() {
-  if (isDesktop()) {
-    state.currentSpreadIndex = Math.max(state.currentSpreadIndex - 1, 0);
-  } else {
-    state.currentMobilePage = Math.max(state.currentMobilePage - 1, 0);
-  }
-  renderSpread();
+  animatedStep(-1, () => {
+    if (isDesktop()) {
+      state.currentSpreadIndex = Math.max(state.currentSpreadIndex - 1, 0);
+    } else {
+      state.currentMobilePage = Math.max(state.currentMobilePage - 1, 0);
+    }
+  });
 }
 
 function first() {
@@ -296,26 +358,180 @@ document.getElementById('btnNext').addEventListener('click', next);
 document.getElementById('btnPrev').addEventListener('click', prev);
 document.getElementById('btnFirst').addEventListener('click', first);
 document.getElementById('btnLast').addEventListener('click', last);
-pageInput.addEventListener('change', () => goToPage(Number(pageInput.value)));
 window.addEventListener('resize', renderSpread);
 
-// Zoom
-function applyZoom() {
-  bookStage.style.transform = `scale(${state.zoom})`;
-  document.getElementById('btnZoomReset').textContent = `${Math.round(state.zoom * 100)}%`;
+pageSlider.addEventListener('input', () => goToPage(Number(pageSlider.value)));
+
+// ---------------------------------------------------------------------
+// Shared bottom-sheet / float-bar system
+// ---------------------------------------------------------------------
+const sheetOverlay = document.getElementById('sheetOverlay');
+const allSheets = Array.from(document.querySelectorAll('.bottom-sheet'));
+const allFloatBars = Array.from(document.querySelectorAll('.float-bar'));
+let activeSheet = null;
+
+function closeAllFloatBars() {
+  allFloatBars.forEach((bar) => bar.classList.remove('open'));
 }
-document.getElementById('btnZoomIn').addEventListener('click', () => {
-  state.zoom = Math.min(state.zoom + 0.15, 2);
-  applyZoom();
+
+function closeSheet() {
+  if (activeSheet) activeSheet.classList.remove('open');
+  activeSheet = null;
+  sheetOverlay.classList.remove('open');
+}
+
+function openSheet(el) {
+  closeAllFloatBars();
+  allSheets.forEach((s) => s.classList.remove('open'));
+  el.classList.add('open');
+  activeSheet = el;
+  sheetOverlay.classList.add('open');
+}
+
+sheetOverlay.addEventListener('click', closeSheet);
+document.querySelectorAll('[data-close-sheet]').forEach((btn) => {
+  btn.addEventListener('click', closeSheet);
 });
-document.getElementById('btnZoomOut').addEventListener('click', () => {
-  state.zoom = Math.max(state.zoom - 0.15, 0.6);
-  applyZoom();
+
+function toggleFloatBar(bar) {
+  const willOpen = !bar.classList.contains('open');
+  closeSheet();
+  closeAllFloatBars();
+  if (willOpen) bar.classList.add('open');
+}
+
+const pageNavBar = document.getElementById('pageNavBar');
+const zoomBar = document.getElementById('zoomBar');
+document.getElementById('btnPageNavToggle').addEventListener('click', () => toggleFloatBar(pageNavBar));
+document.getElementById('btnZoomToggle').addEventListener('click', () => toggleFloatBar(zoomBar));
+
+document.getElementById('btnShare').addEventListener('click', () => openSheet(document.getElementById('shareSheet')));
+document.getElementById('btnHelp').addEventListener('click', () => openSheet(document.getElementById('helpSheet')));
+document.getElementById('btnMore').addEventListener('click', () => openSheet(document.getElementById('moreSheet')));
+document.getElementById('btnThumbnail').addEventListener('click', () => {
+  openSheet(document.getElementById('thumbnailSheet'));
+  renderThumbnails();
 });
-document.getElementById('btnZoomReset').addEventListener('click', () => {
-  state.zoom = 1;
-  applyZoom();
+document.getElementById('btnToc').addEventListener('click', () => {
+  openSheet(document.getElementById('tocSheet'));
+  renderTocPanel();
 });
+
+// ---------------------------------------------------------------------
+// Zoom + pan + pinch + double-tap + tap/swipe page turn
+// ---------------------------------------------------------------------
+const zoomLevelText = document.getElementById('zoomLevelText');
+
+function resetPan() {
+  state.panX = 0;
+  state.panY = 0;
+}
+
+function applyStageTransform() {
+  bookStage.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+  zoomLevelText.textContent = `${Math.round(state.zoom * 100)}%`;
+}
+
+function setZoom(z, animate = true) {
+  state.zoom = clampZoom(z);
+  if (state.zoom <= 1.001) resetPan();
+  bookStage.classList.toggle('panning', !animate);
+  applyStageTransform();
+}
+
+document.getElementById('btnZoomIn').addEventListener('click', () => setZoom(state.zoom + 0.25));
+document.getElementById('btnZoomOut').addEventListener('click', () => setZoom(state.zoom - 0.25));
+document.getElementById('btnZoomReset').addEventListener('click', () => setZoom(1));
+
+const activePointers = new Map();
+let singlePointerStart = null;
+let gestureStartDistance = 0;
+let gestureStartZoom = 1;
+let isPinching = false;
+let lastTapTime = 0;
+let lastTapPos = null;
+
+function pointDistance(p1, p2) {
+  return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+}
+
+function isInteractiveTarget(el) {
+  return Boolean(el.closest('button, a, input, [data-goto], [data-add-cart]'));
+}
+
+bookViewport.addEventListener('pointerdown', (e) => {
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (activePointers.size === 1) {
+    singlePointerStart = {
+      x: e.clientX, y: e.clientY, time: Date.now(),
+      panX: state.panX, panY: state.panY, target: e.target,
+    };
+  } else if (activePointers.size === 2) {
+    isPinching = true;
+    const pts = Array.from(activePointers.values());
+    gestureStartDistance = pointDistance(pts[0], pts[1]) || 1;
+    gestureStartZoom = state.zoom;
+  }
+});
+
+bookViewport.addEventListener('pointermove', (e) => {
+  if (!activePointers.has(e.pointerId)) return;
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (isPinching && activePointers.size === 2) {
+    const pts = Array.from(activePointers.values());
+    const dist = pointDistance(pts[0], pts[1]);
+    setZoom(gestureStartZoom * (dist / gestureStartDistance), false);
+    e.preventDefault();
+    return;
+  }
+
+  if (activePointers.size === 1 && singlePointerStart && state.zoom > 1.01) {
+    state.panX = singlePointerStart.panX + (e.clientX - singlePointerStart.x);
+    state.panY = singlePointerStart.panY + (e.clientY - singlePointerStart.y);
+    bookStage.classList.add('panning');
+    applyStageTransform();
+  }
+});
+
+function endGesture(e) {
+  activePointers.delete(e.pointerId);
+  if (activePointers.size < 2) isPinching = false;
+  if (activePointers.size > 0 || !singlePointerStart) return;
+
+  const start = singlePointerStart;
+  singlePointerStart = null;
+  bookStage.classList.remove('panning');
+
+  const dx = e.clientX - start.x;
+  const dy = e.clientY - start.y;
+  const dist = Math.hypot(dx, dy);
+  const elapsed = Date.now() - start.time;
+  const isTap = dist < 10;
+
+  if (isTap) {
+    const now = Date.now();
+    const isDoubleTap = lastTapPos && (now - lastTapTime) < 350 && pointDistance(lastTapPos, { x: e.clientX, y: e.clientY }) < 40;
+    if (isDoubleTap) {
+      setZoom(state.zoom > 1.01 ? 1 : Math.min(2, getMaxZoom()));
+      lastTapTime = 0;
+      lastTapPos = null;
+      return;
+    }
+    lastTapTime = now;
+    lastTapPos = { x: e.clientX, y: e.clientY };
+
+    if (state.zoom <= 1.01 && !isInteractiveTarget(start.target)) {
+      const ratio = (e.clientX - bookViewport.getBoundingClientRect().left) / bookViewport.clientWidth;
+      if (ratio < 0.33) prev();
+      else if (ratio > 0.67) next();
+    }
+  } else if (state.zoom <= 1.01 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5 && elapsed < 600) {
+    if (dx < 0) next(); else prev();
+  }
+}
+bookViewport.addEventListener('pointerup', endGesture);
+bookViewport.addEventListener('pointercancel', endGesture);
 
 // Search (text + budget range)
 const searchInput = document.getElementById('searchInput');
@@ -325,8 +541,6 @@ const budgetMax = document.getElementById('budgetMax');
 const budgetError = document.getElementById('budgetError');
 const btnBudgetSearch = document.getElementById('btnBudgetSearch');
 const btnBudgetReset = document.getElementById('btnBudgetReset');
-
-state.budgetFilter = null; // { min: number|null, max: number|null }
 
 function formatBudgetInput(el) {
   const digits = el.value.replace(/[^0-9]/g, '');
@@ -609,7 +823,7 @@ function initKakaoSdk() {
   document.head.appendChild(script);
 }
 
-document.getElementById('btnShare').addEventListener('click', () => {
+function shareViaKakao() {
   if (!window.Kakao || !window.Kakao.isInitialized()) {
     alert('카카오 공유 기능이 설정되지 않았습니다.');
     return;
@@ -626,7 +840,240 @@ document.getElementById('btnShare').addEventListener('click', () => {
       },
     },
   });
+}
+
+function shareViaEmail() {
+  const subject = encodeURIComponent(state.catalog.mainTitle || '카탈로그 공유');
+  const body = encodeURIComponent(`카탈로그를 확인해보세요:\n${window.location.href}`);
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+}
+
+async function shareViaCopyLink(button) {
+  const url = window.location.href;
+  const originalLabel = button.textContent;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(url);
+    } else {
+      const temp = document.createElement('textarea');
+      temp.value = url;
+      temp.style.position = 'fixed';
+      temp.style.opacity = '0';
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand('copy');
+      document.body.removeChild(temp);
+    }
+    button.textContent = '복사됨!';
+  } catch {
+    button.textContent = '복사 실패';
+  }
+  setTimeout(() => { button.textContent = originalLabel; }, 1500);
+}
+
+let qrLibraryPromise = null;
+function loadQrLibrary() {
+  if (window.QRCode) return Promise.resolve();
+  if (!qrLibraryPromise) {
+    qrLibraryPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+      script.crossOrigin = 'anonymous';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+  return qrLibraryPromise;
+}
+
+async function shareViaQr() {
+  const container = document.getElementById('qrContainer');
+  container.style.display = 'flex';
+  container.innerHTML = '생성 중...';
+  try {
+    await loadQrLibrary();
+    container.innerHTML = '';
+    // eslint-disable-next-line no-new
+    new window.QRCode(container, {
+      text: window.location.href,
+      width: 160,
+      height: 160,
+    });
+  } catch {
+    container.innerHTML = 'QR코드를 생성할 수 없습니다.';
+  }
+}
+
+document.querySelectorAll('#shareSheet [data-share]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const type = btn.dataset.share;
+    if (type === 'kakao') shareViaKakao();
+    else if (type === 'email') shareViaEmail();
+    else if (type === 'copy') shareViaCopyLink(btn);
+    else if (type === 'qr') shareViaQr();
+  });
 });
+
+// ---------------------------------------------------------------------
+// Settings (dark mode / page-turn animation / auto-fit / rotation lock)
+// ---------------------------------------------------------------------
+const SETTINGS_STORAGE_KEY = 'b2bCatalogSettings';
+const settingDarkMode = document.getElementById('settingDarkMode');
+const settingPageAnim = document.getElementById('settingPageAnim');
+const settingAutoFit = document.getElementById('settingAutoFit');
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY));
+    if (saved && typeof saved === 'object') Object.assign(state.settings, saved);
+  } catch {
+    // ignore malformed storage
+  }
+}
+
+function saveSettings() {
+  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(state.settings));
+}
+
+function applySettingsToUI() {
+  document.documentElement.dataset.theme = state.settings.darkMode ? 'dark' : 'light';
+  settingDarkMode.checked = state.settings.darkMode;
+  settingPageAnim.checked = state.settings.pageAnimation;
+  settingAutoFit.checked = state.settings.autoFit;
+}
+
+settingDarkMode.addEventListener('change', () => {
+  state.settings.darkMode = settingDarkMode.checked;
+  applySettingsToUI();
+  saveSettings();
+});
+settingPageAnim.addEventListener('change', () => {
+  state.settings.pageAnimation = settingPageAnim.checked;
+  saveSettings();
+});
+settingAutoFit.addEventListener('change', () => {
+  state.settings.autoFit = settingAutoFit.checked;
+  saveSettings();
+});
+
+document.getElementById('btnRotationLock').addEventListener('click', async () => {
+  try {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+    }
+    if (screen.orientation && screen.orientation.lock) {
+      await screen.orientation.lock('portrait');
+      alert('화면 회전이 잠금되었습니다.');
+    } else {
+      throw new Error('unsupported');
+    }
+  } catch {
+    alert('이 기기/브라우저에서는 화면 회전 잠금을 지원하지 않습니다. (iPhone Safari는 지원하지 않습니다)');
+  }
+});
+
+// ---------------------------------------------------------------------
+// More menu: settings / fullscreen / PDF / print
+// ---------------------------------------------------------------------
+document.querySelectorAll('#moreSheet [data-more]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const action = btn.dataset.more;
+    if (action === 'settings') {
+      openSheet(document.getElementById('settingsSheet'));
+    } else if (action === 'fullscreen') {
+      closeSheet();
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    } else if (action === 'pdf' || action === 'print') {
+      closeSheet();
+      triggerPrint();
+    }
+  });
+});
+
+function buildPrintContainer() {
+  const container = document.getElementById('printContainer');
+  container.innerHTML = state.pages.map((pageData) => `
+    <div class="print-page">${pageHtml(pageData)}</div>
+  `).join('');
+}
+
+function triggerPrint() {
+  buildPrintContainer();
+  window.print();
+}
+
+// ---------------------------------------------------------------------
+// Thumbnail panel
+// ---------------------------------------------------------------------
+function pageLabel(pageData) {
+  if (pageData.type === 'cover') return '표지';
+  if (pageData.type === 'toc') return '목차';
+  if (pageData.type === 'back') return '주문안내';
+  if (pageData.type === 'categoryGrid') return pageData.category;
+  if (pageData.type === 'product') return pageData.product.name;
+  return '';
+}
+
+function pageThumbImage(pageData) {
+  if (pageData.type === 'product') return pageData.product.imageUrl;
+  if (pageData.type === 'categoryGrid' && pageData.products.length) return pageData.products[0].imageUrl;
+  return null;
+}
+
+function renderThumbnails(filter = '') {
+  const grid = document.getElementById('thumbnailGrid');
+  const current = currentLogicalPage();
+  const q = filter.trim().toLowerCase();
+
+  const items = state.pages
+    .map((pageData, index) => ({ pageData, index, label: pageLabel(pageData) }))
+    .filter(({ index, label }) => {
+      if (!q) return true;
+      if (String(index + 1) === q) return true;
+      return label.toLowerCase().includes(q);
+    });
+
+  grid.innerHTML = items.map(({ pageData, index, label }) => {
+    const img = pageThumbImage(pageData);
+    return `
+      <div class="thumb-card ${index + 1 === current ? 'current' : ''}" data-goto-thumb="${index + 1}">
+        <div class="thumb-preview">${img ? `<img src="${img}" onerror="this.src='/assets/no-image.svg'" />` : escapeHtml(label)}</div>
+        <div class="thumb-page-no">${index + 1}</div>
+      </div>`;
+  }).join('') || '<div class="no-results">검색 결과가 없습니다.</div>';
+}
+
+document.getElementById('thumbnailGrid').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-goto-thumb]');
+  if (!el) return;
+  goToPage(Number(el.dataset.gotoThumb));
+  closeSheet();
+});
+
+document.getElementById('thumbnailSearch').addEventListener('input', (e) => renderThumbnails(e.target.value));
+
+// ---------------------------------------------------------------------
+// TOC panel
+// ---------------------------------------------------------------------
+function renderTocPanel(filter = '') {
+  const list = document.getElementById('tocPanelList');
+  const q = filter.trim().toLowerCase();
+  const entries = state.tocEntries.filter((e) => !q || e.category.toLowerCase().includes(q));
+  list.innerHTML = entries.map((e) => `
+    <li data-goto-toc="${e.page}"><span>${escapeHtml(e.category)}</span><span>${e.page}</span></li>
+  `).join('') || '<div class="no-results">검색 결과가 없습니다.</div>';
+}
+
+document.getElementById('tocPanelList').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-goto-toc]');
+  if (!el) return;
+  goToPage(Number(el.dataset.gotoToc));
+  closeSheet();
+});
+
+document.getElementById('tocSearch').addEventListener('input', (e) => renderTocPanel(e.target.value));
 
 // Keep the book viewport clear of the toolbar even as it grows to two rows
 // (budget filter row) or wraps on narrow screens.
@@ -641,6 +1088,9 @@ syncToolbarHeight();
 
 // Init
 async function init() {
+  loadSettings();
+  applySettingsToUI();
+
   if (!catalogId) {
     loadingScreen.textContent = '카탈로그 ID가 지정되지 않았습니다.';
     return;
@@ -653,6 +1103,7 @@ async function init() {
     const built = buildPages(state.catalog);
     state.pages = built.pages;
     state.productPageIndex = built.productPageIndex;
+    state.tocEntries = built.tocEntries;
     state.searchIndex = buildSearchIndex(state.catalog);
 
     const initialPage = Number(params.get('page')) || 1;
