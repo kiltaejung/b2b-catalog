@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>웹 카탈로그</title>
+<link rel="stylesheet" href="css/flipbook.css" />
+<script src="/config.js"></script>
+</head>
+<body>
+  <header class="toolbar">
+    <div class="toolbar-left">
+      <button id="btnCart" class="icon-btn" type="button" title="견적 담기함">🛒 <span id="cartCount">0</span></button>
+    </div>
+    <div class="toolbar-center">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="상품명 / 상품코드 / 카테고리 검색" autocomplete="off" />
+        <div id="searchResults" class="search-results"></div>
+      </div>
+    </div>
+    <div class="toolbar-right">
+      <button id="btnZoomOut" class="icon-btn" type="button" title="축소">－</button>
+      <button id="btnZoomReset" class="icon-btn" type="button" title="원래 크기">100%</button>
+      <button id="btnZoomIn" class="icon-btn" type="button" title="확대">＋</button>
+      <button id="btnShare" class="icon-btn" type="button" title="카카오톡 공유">공유</button>
+    </div>
+  </header>
+
+  <main id="bookViewport" class="book-viewport">
+    <div id="bookStage" class="book-stage">
+      <div id="bookSpread" class="book-spread"></div>
+    </div>
+  </main>
+
+  <footer class="nav-bar">
+    <button id="btnFirst" class="nav-btn" type="button" title="처음 페이지">⏮</button>
+    <button id="btnPrev" class="nav-btn" type="button" title="이전 페이지">◀</button>
+    <div class="page-indicator">
+      <input type="number" id="pageInput" min="1" value="1" />
+      <span>/ <span id="totalPages">1</span></span>
+    </div>
+    <button id="btnNext" class="nav-btn" type="button" title="다음 페이지">▶</button>
+    <button id="btnLast" class="nav-btn" type="button" title="마지막 페이지">⏭</button>
+  </footer>
+
+  <aside id="cartDrawer" class="cart-drawer">
+    <div class="cart-header">
+      <h2>견적 담기함</h2>
+      <button id="btnCloseCart" class="icon-btn" type="button">✕</button>
+    </div>
+    <div id="cartItems" class="cart-items"></div>
+    <div class="cart-footer">
+      <div class="cart-total">합계: <strong id="cartTotal">0원</strong></div>
+      <label>고객명 <input type="text" id="quoteCustomerName" /></label>
+      <label>연락처 <input type="text" id="quoteCustomerContact" /></label>
+      <button id="btnGenerateQuote" type="button">견적서 생성</button>
+    </div>
+  </aside>
+  <div id="cartOverlay" class="cart-overlay"></div>
+
+  <div id="loadingScreen" class="loading-screen">카탈로그를 불러오는 중...</div>
+
+  <script src="js/flipbook.js"></script>
+</body>
+</html>

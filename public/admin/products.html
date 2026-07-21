@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>상품관리 - B2B 카탈로그 관리자</title>
+<link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+  <nav class="nav">
+    <strong>B2B 카탈로그 관리자</strong>
+    <a href="index.html">홈</a>
+    <a href="products.html" class="active">상품관리</a>
+    <a href="catalogs.html">카탈로그 관리</a>
+  </nav>
+  <div class="container">
+    <h1>상품관리</h1>
+
+    <div class="card">
+      <h2 style="margin-top:0">엑셀 업로드</h2>
+      <div class="toolbar">
+        <button id="downloadTemplateBtn" class="secondary" type="button">엑셀 양식 다운로드</button>
+        <input type="file" id="excelFile" accept=".xlsx,.xls" />
+        <button id="uploadBtn" type="button">업로드</button>
+      </div>
+      <div id="uploadResult"></div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <input type="text" id="searchInput" placeholder="상품명 / 상품코드 / 카테고리 검색" />
+        <button id="newProductBtn" type="button">상품 추가</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>이미지</th>
+            <th>순서</th>
+            <th>카테고리</th>
+            <th>상품코드</th>
+            <th>상품명</th>
+            <th>브랜드</th>
+            <th>판매가</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="productTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="productModalBackdrop">
+    <div class="modal">
+      <h2 id="modalTitle">상품 추가</h2>
+      <form id="productForm" class="form-grid">
+        <input type="hidden" id="productId" />
+        <label>노출순서 *
+          <input type="number" id="display_order" required />
+        </label>
+        <label>카테고리 *
+          <input type="text" id="category" required />
+        </label>
+        <label>상품코드 *
+          <input type="text" id="product_code" required />
+        </label>
+        <label>상품명 *
+          <input type="text" id="name" required />
+        </label>
+        <label>브랜드
+          <input type="text" id="brand" />
+        </label>
+        <label>대표이미지 URL *
+          <input type="url" id="image_url" required />
+        </label>
+        <label>정상가
+          <input type="number" id="original_price" />
+        </label>
+        <label>판매가 *
+          <input type="number" id="sale_price" required />
+        </label>
+        <label>상품구성 *
+          <input type="text" id="composition" required />
+        </label>
+        <label>원산지
+          <input type="text" id="origin" />
+        </label>
+        <label>상품특징
+          <textarea id="features" rows="2"></textarea>
+        </label>
+        <label style="grid-column: 1 / -1">상품설명
+          <textarea id="description" rows="3"></textarea>
+        </label>
+        <label style="grid-column: 1 / -1">배송안내
+          <textarea id="shipping_info" rows="2"></textarea>
+        </label>
+        <div class="errors" id="formErrors" style="display:none; grid-column: 1 / -1"></div>
+        <div class="toolbar" style="grid-column: 1 / -1">
+          <button type="submit">저장</button>
+          <button type="button" class="secondary" id="cancelModalBtn">취소</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/products.js"></script>
+</body>
+</html>

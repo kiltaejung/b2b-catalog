@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>견적서</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Pretendard, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #1e293b; }
+  h1 { font-size: 1.4rem; border-bottom: 3px solid #1e3a8a; padding-bottom: 0.5rem; }
+  table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  th, td { border: 1px solid #e2e8f0; padding: 0.6rem; text-align: left; font-size: 0.9rem; }
+  th { background: #f8fafc; }
+  .meta { margin: 1rem 0; font-size: 0.9rem; color: #475569; }
+  .total-row td { font-weight: 700; font-size: 1rem; }
+  .print-btn { margin-top: 1.5rem; padding: 0.6rem 1.2rem; background: #1e3a8a; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+  @media print { .print-btn { display: none; } }
+</style>
+</head>
+<body>
+  <h1>견적서</h1>
+  <div class="meta" id="quoteMeta"></div>
+  <table>
+    <thead>
+      <tr><th>상품코드</th><th>상품명</th><th>단가</th><th>수량</th><th>소계</th></tr>
+    </thead>
+    <tbody id="quoteItems"></tbody>
+    <tfoot>
+      <tr class="total-row"><td colspan="4">합계</td><td id="quoteTotal"></td></tr>
+    </tfoot>
+  </table>
+  <button class="print-btn" type="button" onclick="window.print()">인쇄 / PDF 저장</button>
+
+  <script>
+    const id = new URLSearchParams(window.location.search).get('id');
+
+    async function load() {
+      const res = await fetch(`/api/quotes/${id}`);
+      const data = await res.json();
+      if (!res.ok) {
+        document.body.innerHTML = `<p>${data.error || '견적서를 불러올 수 없습니다.'}</p>`;
+        return;
+      }
+      const quote = data.quote;
+      document.getElementById('quoteMeta').innerHTML = `
+        견적번호: #${quote.id}<br />
+        고객명: ${quote.customer_name || '-'}<br />
+        연락처: ${quote.customer_contact || '-'}<br />
+        작성일: ${new Date(quote.created_at).toLocaleString('ko-KR')}
+      `;
+      document.getElementById('quoteItems').innerHTML = quote.items.map((item) => `
+        <tr>
+          <td>${item.product_code}</td>
+          <td>${item.product_name}</td>
+          <td>${Number(item.unit_price).toLocaleString()}원</td>
+          <td>${item.quantity}</td>
+          <td>${Number(item.subtotal).toLocaleString()}원</td>
+        </tr>
+      `).join('');
+      document.getElementById('quoteTotal').textContent = `${Number(quote.total_amount).toLocaleString()}원`;
+    }
+
+    load();
+  </script>
+</body>
+</html>

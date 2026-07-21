@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>카탈로그 관리 - B2B 카탈로그 관리자</title>
+<link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+  <nav class="nav">
+    <strong>B2B 카탈로그 관리자</strong>
+    <a href="index.html">홈</a>
+    <a href="products.html">상품관리</a>
+    <a href="catalogs.html" class="active">카탈로그 관리</a>
+  </nav>
+  <div class="container">
+    <h1>카탈로그 관리</h1>
+
+    <div class="card">
+      <h2 style="margin-top:0">카탈로그 생성</h2>
+      <form id="catalogForm" class="form-grid">
+        <label>시즌명
+          <input type="text" id="seasonName" placeholder="예: 2026 설 선물세트" />
+        </label>
+        <label>메인 타이틀 *
+          <input type="text" id="mainTitle" required placeholder="예: 2026 설 선물세트 카다로그" />
+        </label>
+        <label>회사 로고 URL
+          <input type="url" id="companyLogoUrl" />
+        </label>
+        <label>표지 대표 이미지 URL
+          <input type="url" id="coverImageUrl" />
+        </label>
+        <label>고객사명
+          <input type="text" id="clientName" placeholder="고객사 전용 카탈로그인 경우 입력" />
+        </label>
+        <label>고객사 로고 URL
+          <input type="url" id="clientLogoUrl" />
+        </label>
+        <label class="checkbox-row" style="grid-column: 1 / -1">
+          <input type="checkbox" id="showPrice" checked />
+          가격 표시 (해제 시 가격 숨김)
+        </label>
+        <label style="grid-column: 1 / -1">카테고리 노출 순서 (쉼표로 구분, 비우면 자동)
+          <input type="text" id="categoryOrder" placeholder="예: 과일,건강식품,스팸,참치,한우,생활용품" />
+        </label>
+        <div class="errors" id="catalogFormErrors" style="display:none; grid-column: 1 / -1"></div>
+        <div class="toolbar" style="grid-column: 1 / -1">
+          <button type="submit">카탈로그 생성 (전체 상품 포함)</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">생성된 카탈로그</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>메인 타이틀</th>
+            <th>시즌</th>
+            <th>고객사</th>
+            <th>가격표시</th>
+            <th>생성일</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="catalogTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="js/catalogs.js"></script>
+</body>
+</html>
