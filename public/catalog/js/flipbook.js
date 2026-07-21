@@ -5,7 +5,6 @@ const state = {
   catalog: null,
   pages: [],
   productPageIndex: {},
-  searchIndex: [],
   tocEntries: [],
   currentSpreadIndex: 0,
   currentMobilePage: 0,
@@ -95,23 +94,6 @@ function buildPages(catalog) {
   pages[tocPageIndex].entries = tocEntries;
 
   return { pages, productPageIndex, tocEntries };
-}
-
-function buildSearchIndex(catalog) {
-  const index = [];
-  catalog.categories.forEach((catEntry) => {
-    catEntry.products.forEach((p) => {
-      index.push({
-        id: p.id,
-        name: p.name,
-        productCode: p.productCode,
-        category: catEntry.category,
-        imageUrl: p.imageUrl,
-        salePrice: Number(p.salePrice),
-      });
-    });
-  });
-  return index;
 }
 
 function pageHtml(pageData) {
@@ -406,7 +388,6 @@ document.getElementById('btnPageNavToggle').addEventListener('click', () => togg
 document.getElementById('btnZoomToggle').addEventListener('click', () => toggleFloatBar(zoomBar));
 
 document.getElementById('btnShare').addEventListener('click', () => openSheet(document.getElementById('shareSheet')));
-document.getElementById('btnHelp').addEventListener('click', () => openSheet(document.getElementById('helpSheet')));
 document.getElementById('btnMore').addEventListener('click', () => openSheet(document.getElementById('moreSheet')));
 document.getElementById('btnThumbnail').addEventListener('click', () => {
   openSheet(document.getElementById('thumbnailSheet'));
@@ -533,14 +514,21 @@ function endGesture(e) {
 bookViewport.addEventListener('pointerup', endGesture);
 bookViewport.addEventListener('pointercancel', endGesture);
 
-// Search (text + budget range)
-const searchInput = document.getElementById('searchInput');
-const searchResults = document.getElementById('searchResults');
+// ---------------------------------------------------------------------
+// Price search (top-center label + sheet) and product search (bottom
+// sheet), both driving the live-DB result count / excel export.
+// ---------------------------------------------------------------------
+const productSearchInput = document.getElementById('productSearchInput');
 const budgetMin = document.getElementById('budgetMin');
 const budgetMax = document.getElementById('budgetMax');
 const budgetError = document.getElementById('budgetError');
 const btnBudgetSearch = document.getElementById('btnBudgetSearch');
 const btnBudgetReset = document.getElementById('btnBudgetReset');
+const btnPriceSearch = document.getElementById('btnPriceSearch');
+const resultCountText = document.getElementById('resultCountText');
+const btnExportExcel = document.getElementById('btnExportExcel');
+
+let exportQueryString = '';
 
 function formatBudgetInput(el) {
   const digits = el.value.replace(/[^0-9]/g, '');
@@ -555,55 +543,26 @@ function parseBudgetValue(el) {
 budgetMin.addEventListener('input', () => formatBudgetInput(budgetMin));
 budgetMax.addEventListener('input', () => formatBudgetInput(budgetMax));
 
-function runSearch() {
-  const q = searchInput.value.trim().toLowerCase();
+function updatePriceSearchLabel() {
   const budget = state.budgetFilter;
-
-  if (!q && !budget) {
-    searchResults.classList.remove('open');
-    searchResults.innerHTML = '';
+  if (!budget) {
+    btnPriceSearch.textContent = '예산으로 상품 찾기';
+    btnPriceSearch.classList.remove('active');
     return;
   }
-
-  const matches = state.searchIndex.filter((item) => {
-    const textOk = !q ||
-      item.name.toLowerCase().includes(q) ||
-      (item.productCode || '').toLowerCase().includes(q) ||
-      item.category.toLowerCase().includes(q);
-    if (!textOk) return false;
-    if (budget) {
-      if (budget.min !== null && item.salePrice < budget.min) return false;
-      if (budget.max !== null && item.salePrice > budget.max) return false;
-    }
-    return true;
-  }).slice(0, 50);
-
-  if (!matches.length) {
-    const message = budget ? '입력하신 예산 범위에 해당하는 상품이 없습니다.' : '검색 결과가 없습니다.';
-    searchResults.innerHTML = `<div class="no-results">${message}</div>`;
+  btnPriceSearch.classList.add('active');
+  if (budget.min !== null && budget.max !== null) {
+    btnPriceSearch.textContent = `${formatPrice(budget.min)} ~ ${formatPrice(budget.max)}`;
+  } else if (budget.min !== null) {
+    btnPriceSearch.textContent = `${formatPrice(budget.min)} 이상`;
   } else {
-    searchResults.innerHTML = matches.map((m) => `
-      <div class="search-result-item" data-goto="${state.productPageIndex[m.id] + 1}">
-        <img src="${m.imageUrl}" onerror="this.src='/assets/no-image.svg'" />
-        <div>
-          <div>${escapeHtml(m.name)}</div>
-          <div style="color:#94a3b8">${escapeHtml(m.category)} · ${escapeHtml(m.productCode || '')} · ${formatPrice(m.salePrice)}</div>
-        </div>
-      </div>`).join('');
+    btnPriceSearch.textContent = `${formatPrice(budget.max)} 이하`;
   }
-  searchResults.classList.add('open');
 }
-
-// Result count + excel export of the currently queried products (live DB,
-// not just the catalog snapshot), per the "조회 상품 엑셀 다운로드" feature.
-const resultCountText = document.getElementById('resultCountText');
-const btnExportExcel = document.getElementById('btnExportExcel');
-let exportQueryString = '';
-let exportDebounceTimer = null;
 
 function currentFilterParams() {
   const params = new URLSearchParams();
-  const q = searchInput.value.trim();
+  const q = productSearchInput.value.trim();
   if (q) params.set('search', q);
   if (state.budgetFilter) {
     if (state.budgetFilter.min !== null) params.set('minPrice', state.budgetFilter.min);
@@ -627,17 +586,11 @@ async function updateExportUI() {
   }
 }
 
-function scheduleExportUIUpdate() {
-  clearTimeout(exportDebounceTimer);
-  exportDebounceTimer = setTimeout(updateExportUI, 300);
-}
-
 btnExportExcel.addEventListener('click', () => {
   window.location.href = `/api/products/export?${exportQueryString}`;
 });
 
-searchInput.addEventListener('input', runSearch);
-searchInput.addEventListener('input', scheduleExportUIUpdate);
+document.getElementById('btnPriceSearch').addEventListener('click', () => openSheet(document.getElementById('priceSearchSheet')));
 
 btnBudgetSearch.addEventListener('click', () => {
   const min = parseBudgetValue(budgetMin);
@@ -649,8 +602,9 @@ btnBudgetSearch.addEventListener('click', () => {
   }
   budgetError.style.display = 'none';
   state.budgetFilter = (min !== null || max !== null) ? { min, max } : null;
-  runSearch();
+  updatePriceSearchLabel();
   updateExportUI();
+  closeSheet();
 });
 
 btnBudgetReset.addEventListener('click', () => {
@@ -658,19 +612,21 @@ btnBudgetReset.addEventListener('click', () => {
   budgetMax.value = '';
   budgetError.style.display = 'none';
   state.budgetFilter = null;
-  runSearch();
+  updatePriceSearchLabel();
+  updateExportUI();
+  closeSheet();
+});
+
+document.getElementById('btnProductSearch').addEventListener('click', () => updateExportUI());
+productSearchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') updateExportUI();
+});
+document.getElementById('btnProductSearchReset').addEventListener('click', () => {
+  productSearchInput.value = '';
   updateExportUI();
 });
-
-searchResults.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-goto]');
-  if (!el) return;
-  goToPage(Number(el.dataset.goto));
-  searchResults.classList.remove('open');
-});
-
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.search-box')) searchResults.classList.remove('open');
+document.getElementById('btnProductSearchToggle').addEventListener('click', () => {
+  openSheet(document.getElementById('productSearchSheet'));
 });
 
 // Cart
@@ -979,7 +935,9 @@ document.getElementById('btnRotationLock').addEventListener('click', async () =>
 document.querySelectorAll('#moreSheet [data-more]').forEach((btn) => {
   btn.addEventListener('click', () => {
     const action = btn.dataset.more;
-    if (action === 'settings') {
+    if (action === 'help') {
+      openSheet(document.getElementById('helpSheet'));
+    } else if (action === 'settings') {
       openSheet(document.getElementById('settingsSheet'));
     } else if (action === 'fullscreen') {
       closeSheet();
@@ -1104,7 +1062,6 @@ async function init() {
     state.pages = built.pages;
     state.productPageIndex = built.productPageIndex;
     state.tocEntries = built.tocEntries;
-    state.searchIndex = buildSearchIndex(state.catalog);
 
     const initialPage = Number(params.get('page')) || 1;
     goToPage(initialPage);

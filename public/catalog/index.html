@@ -13,27 +13,10 @@
       <button id="btnCart" class="icon-btn" type="button" title="견적 담기함">🛒 <span id="cartCount">0</span></button>
     </div>
     <div class="toolbar-center">
-      <div class="search-box">
-        <input type="text" id="searchInput" placeholder="상품명 / 상품코드 / 카테고리 검색" autocomplete="off" />
-        <div class="budget-row">
-          <span class="budget-label">예산</span>
-          <input type="text" id="budgetMin" inputmode="numeric" placeholder="최소 금액" />
-          <span class="tilde">~</span>
-          <input type="text" id="budgetMax" inputmode="numeric" placeholder="최대 금액" />
-          <button id="btnBudgetSearch" class="icon-btn" type="button">조회</button>
-          <button id="btnBudgetReset" class="icon-btn" type="button">초기화</button>
-        </div>
-        <div id="budgetError" class="budget-error" style="display:none"></div>
-        <div class="export-row">
-          <span id="resultCountText" class="result-count">조회 결과: 0개</span>
-          <button id="btnExportExcel" class="icon-btn" type="button">전체 상품 엑셀 다운로드</button>
-        </div>
-        <div id="searchResults" class="search-results"></div>
-      </div>
+      <button id="btnPriceSearch" class="price-search-btn" type="button">예산으로 상품 찾기</button>
     </div>
     <div class="toolbar-right">
       <button id="btnShare" class="icon-btn" type="button" title="공유">🔗 <span class="icon-btn-label">공유</span></button>
-      <button id="btnHelp" class="icon-btn" type="button" title="도움말">❓ <span class="icon-btn-label">도움말</span></button>
     </div>
   </header>
 
@@ -62,20 +45,23 @@
 
   <!-- Fixed bottom icon bar -->
   <nav class="bottom-bar">
-    <button id="btnThumbnail" class="bottom-bar-btn" type="button">
-      <span class="bb-icon">▦</span><span class="bb-label">썸네일</span>
+    <button id="btnThumbnail" class="bottom-bar-btn" type="button" aria-label="썸네일" title="썸네일">
+      <span class="bb-icon">▦</span>
     </button>
-    <button id="btnToc" class="bottom-bar-btn" type="button">
-      <span class="bb-icon">☰</span><span class="bb-label">목차</span>
+    <button id="btnToc" class="bottom-bar-btn" type="button" aria-label="목차" title="목차">
+      <span class="bb-icon">☰</span>
     </button>
-    <button id="btnPageNavToggle" class="bottom-bar-btn" type="button">
-      <span class="bb-icon">⇔</span><span class="bb-label">페이지</span>
+    <button id="btnPageNavToggle" class="bottom-bar-btn" type="button" aria-label="페이지 이동" title="페이지 이동">
+      <span class="bb-icon">⇔</span>
     </button>
-    <button id="btnZoomToggle" class="bottom-bar-btn" type="button">
-      <span class="bb-icon">🔍</span><span class="bb-label">확대</span>
+    <button id="btnZoomToggle" class="bottom-bar-btn" type="button" aria-label="확대" title="확대">
+      <span class="bb-icon">🔍</span>
     </button>
-    <button id="btnMore" class="bottom-bar-btn" type="button">
-      <span class="bb-icon">⋯</span><span class="bb-label">더보기</span>
+    <button id="btnProductSearchToggle" class="bottom-bar-btn" type="button" aria-label="상품검색" title="상품검색">
+      <span class="bb-icon">🔎</span>
+    </button>
+    <button id="btnMore" class="bottom-bar-btn" type="button" aria-label="더보기" title="더보기">
+      <span class="bb-icon">⋯</span>
     </button>
   </nav>
 
@@ -110,10 +96,40 @@
   <div id="moreSheet" class="bottom-sheet">
     <div class="sheet-handle"></div>
     <h3>더보기</h3>
+    <button class="sheet-list-item" type="button" data-more="help">❓ 도움말</button>
     <button class="sheet-list-item" type="button" data-more="settings">⚙️ 설정</button>
     <button class="sheet-list-item" type="button" data-more="fullscreen">⛶ 전체화면</button>
     <button class="sheet-list-item" type="button" data-more="pdf">⬇️ 다운로드 (PDF)</button>
     <button class="sheet-list-item" type="button" data-more="print">🖨️ 인쇄</button>
+  </div>
+
+  <div id="priceSearchSheet" class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <h3>가격검색</h3>
+    <div class="budget-row">
+      <input type="text" id="budgetMin" inputmode="numeric" placeholder="최소 금액" />
+      <span class="tilde">~</span>
+      <input type="text" id="budgetMax" inputmode="numeric" placeholder="최대 금액" />
+    </div>
+    <div id="budgetError" class="budget-error" style="display:none"></div>
+    <div class="sheet-actions-row">
+      <button id="btnBudgetSearch" type="button">조회</button>
+      <button id="btnBudgetReset" class="secondary" type="button">초기화</button>
+    </div>
+  </div>
+
+  <div id="productSearchSheet" class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <h3>상품검색</h3>
+    <div class="product-search-row">
+      <input type="text" id="productSearchInput" placeholder="상품명 / 상품코드 / 카테고리" autocomplete="off" />
+      <button id="btnProductSearch" type="button">조회</button>
+      <button id="btnProductSearchReset" class="secondary" type="button">초기화</button>
+    </div>
+    <div class="export-row">
+      <span id="resultCountText" class="result-count">조회 결과: 0개</span>
+    </div>
+    <button id="btnExportExcel" class="sheet-close-btn" type="button">전체 상품 엑셀 다운로드</button>
   </div>
 
   <div id="settingsSheet" class="bottom-sheet">

@@ -50,17 +50,17 @@ html, body {
 .toolbar {
   position: fixed;
   top: 0; left: 0; right: 0;
-  min-height: 56px;
+  height: 56px;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  padding: 0.6rem 1rem;
+  padding: 0 1rem;
   background: var(--chrome-bg);
   z-index: 30;
   gap: 1rem;
 }
 
-.toolbar-left, .toolbar-right { display: flex; gap: 0.4rem; align-items: center; padding-top: 0.15rem; }
+.toolbar-left, .toolbar-right { display: flex; gap: 0.4rem; align-items: center; }
 .toolbar-center { flex: 1; display: flex; justify-content: center; }
 
 .icon-btn {
@@ -74,59 +74,77 @@ html, body {
 }
 .icon-btn:hover { background: var(--chrome-btn-bg-hover); }
 
-.search-box { position: relative; width: min(420px, 60vw); }
-.search-box input {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
+.price-search-btn {
+  background: var(--chrome-btn-bg);
+  color: var(--chrome-text);
   border: none;
+  border-radius: 999px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  max-width: min(70vw, 320px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.price-search-btn:hover { background: var(--chrome-btn-bg-hover); }
+.price-search-btn.active { background: var(--band); color: #fff; }
+
+/* Price-search sheet */
+.budget-row { display: flex; align-items: center; justify-content: center; gap: 0.6rem; margin-top: 0.5rem; }
+.budget-row input {
+  flex: 1;
+  max-width: 160px;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--sheet-border);
+  background: transparent;
+  color: var(--sheet-text);
   font-size: 0.9rem;
 }
-.budget-row { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.4rem; flex-wrap: wrap; }
-.budget-label { color: var(--chrome-text); font-size: 0.75rem; opacity: 0.85; flex-shrink: 0; }
-.budget-row input {
-  width: 92px;
-  padding: 0.35rem 0.5rem;
-  border-radius: 6px;
+.budget-row .tilde { color: var(--sheet-text); opacity: 0.7; }
+.budget-error { color: #f87171; font-size: 0.8rem; margin-top: 0.5rem; text-align: center; }
+.sheet-actions-row { display: flex; gap: 0.6rem; margin-top: 1rem; }
+.sheet-actions-row button {
+  flex: 1;
+  padding: 0.7rem;
   border: none;
-  font-size: 0.8rem;
-}
-.budget-row .tilde { color: var(--chrome-text); opacity: 0.7; font-size: 0.8rem; }
-.budget-row button { padding: 0.35rem 0.6rem; font-size: 0.78rem; }
-.budget-error { color: #fecaca; font-size: 0.75rem; margin-top: 0.3rem; }
-.export-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.4rem; flex-wrap: wrap; }
-.result-count { color: var(--chrome-text); font-size: 0.78rem; opacity: 0.85; }
-.export-row .icon-btn { padding: 0.35rem 0.6rem; font-size: 0.78rem; background: var(--chrome-btn-bg-hover); }
-.search-results {
-  display: none;
-  position: absolute;
-  top: 100%;
-  margin-top: 0.4rem;
-  left: 0;
-  right: 0;
-  max-height: 320px;
-  overflow-y: auto;
-  background: #fff;
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  background: var(--band);
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
 }
-.search-results.open { display: block; }
-.no-results { padding: 0.75rem; font-size: 0.85rem; color: #64748b; text-align: center; grid-column: 1 / -1; }
-.search-result-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.75rem;
+.sheet-actions-row button.secondary { background: rgba(127,127,127,0.25); color: var(--sheet-text); }
+
+/* Product-search sheet */
+.product-search-row { display: flex; gap: 0.6rem; margin-top: 0.5rem; flex-wrap: wrap; }
+.product-search-row input {
+  flex: 1;
+  min-width: 160px;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--sheet-border);
+  background: transparent;
+  color: var(--sheet-text);
+  font-size: 0.9rem;
+}
+.product-search-row button {
+  padding: 0.55rem 0.9rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--band);
+  color: #fff;
   cursor: pointer;
   font-size: 0.85rem;
-  color: #1e293b;
 }
-.search-result-item:hover { background: #f1f5f9; }
-.search-result-item img { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; }
+.product-search-row button.secondary { background: rgba(127,127,127,0.25); color: var(--sheet-text); }
+.export-row { display: flex; align-items: center; margin-top: 1rem; }
+.result-count { color: var(--sheet-text); font-size: 0.85rem; opacity: 0.85; }
 
 .book-viewport {
   position: absolute;
-  inset: var(--toolbar-h, 56px) 0 var(--bottom-h, 64px) 0;
+  inset: var(--toolbar-h, 56px) 0 var(--bottom-h, 56px) 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -321,7 +339,7 @@ html, body {
 .bottom-bar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
-  height: 64px;
+  height: 56px;
   display: flex;
   align-items: stretch;
   justify-content: space-around;
@@ -330,25 +348,24 @@ html, body {
 }
 .bottom-bar-btn {
   flex: 1;
+  min-width: 44px;
+  min-height: 44px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
   background: none;
   border: none;
   color: var(--chrome-text);
   cursor: pointer;
 }
 .bottom-bar-btn:hover, .bottom-bar-btn.active { background: var(--chrome-btn-bg); }
-.bb-icon { font-size: 1.15rem; line-height: 1; }
-.bb-label { font-size: 0.65rem; opacity: 0.85; }
+.bb-icon { font-size: 1.4rem; line-height: 1; }
 
 /* Slim floating overlay bars (page nav slider / zoom controls) */
 .float-bar {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--bottom-h, 64px) + 10px);
+  bottom: calc(var(--bottom-h, 56px) + 10px);
   transform: translateX(-50%) translateY(12px);
   display: none;
   align-items: center;
@@ -616,10 +633,8 @@ html, body {
 @media (max-width: 860px) {
   .page { width: 94vw; height: 82vh; }
   .product-grid { grid-template-columns: repeat(2, 1fr); }
-  .search-box { width: 60vw; }
   .toolbar { flex-wrap: wrap; padding: 0.5rem; gap: 0.5rem; }
   .cart-drawer { width: 100%; right: -100%; }
-  .bb-label { display: none; }
   .float-bar { padding: 0.4rem 0.6rem; gap: 0.4rem; }
   .page-slider { width: 34vw; }
   .sheet-grid { grid-template-columns: repeat(2, 1fr); }
@@ -627,8 +642,8 @@ html, body {
 
 @media (max-width: 480px) {
   .product-grid { grid-template-columns: 1fr; }
-  .search-box { width: 46vw; }
   .toolbar-right { gap: 0.3rem; }
   .toolbar-right .icon-btn { padding: 0.4rem 0.5rem; }
   .toolbar-right .icon-btn-label { display: none; }
+  .price-search-btn { max-width: 50vw; }
 }
