@@ -105,21 +105,23 @@ function pageHtml(pageData) {
       return `
         <div class="page single">
           <div class="page-cover">
-            <div>
-              <div class="brand-row">
-                ${catalog.companyLogoUrl ? `<img src="${catalog.companyLogoUrl}" alt="logo" />` : ''}
+            ${catalog.coverImageUrl ? `<div class="cover-image" style="background-image:url('${catalog.coverImageUrl}')"></div>` : ''}
+            <div class="cover-overlay">
+              <div>
+                <div class="brand-row">
+                  ${catalog.companyLogoUrl ? `<img src="${catalog.companyLogoUrl}" alt="logo" />` : ''}
+                </div>
+                ${catalog.seasonName ? `<div class="season">${escapeHtml(catalog.seasonName)}</div>` : ''}
               </div>
-              ${catalog.seasonName ? `<div class="season">${escapeHtml(catalog.seasonName)}</div>` : ''}
-            </div>
-            <div class="cover-image" style="background-image:url('${catalog.coverImageUrl || ''}')"></div>
-            <div>
-              <div class="main-title">${escapeHtml(catalog.mainTitle)}</div>
-              <div class="subtitle">PREMIUM · GIFT · GUIDE · BOOK</div>
-              ${catalog.clientName ? `
-                <div class="client-tag" style="margin-top:0.9rem">
-                  ${catalog.clientLogoUrl ? `<img src="${catalog.clientLogoUrl}" alt="client" />` : ''}
-                  <span>${escapeHtml(catalog.clientName)} 전용 카탈로그</span>
-                </div>` : ''}
+              <div>
+                <div class="main-title">${escapeHtml(catalog.mainTitle)}</div>
+                <div class="subtitle">PREMIUM · GIFT · GUIDE · BOOK</div>
+                ${catalog.clientName ? `
+                  <div class="client-tag" style="margin-top:0.9rem">
+                    ${catalog.clientLogoUrl ? `<img src="${catalog.clientLogoUrl}" alt="client" />` : ''}
+                    <span>${escapeHtml(catalog.clientName)} 전용 카탈로그</span>
+                  </div>` : ''}
+              </div>
             </div>
           </div>
         </div>`;
