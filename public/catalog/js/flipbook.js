@@ -452,6 +452,7 @@ document.getElementById('btnGenerateQuote').addEventListener('click', async () =
     alert('담긴 상품이 없습니다.');
     return;
   }
+  const customerCompany = document.getElementById('quoteCustomerCompany').value;
   const customerName = document.getElementById('quoteCustomerName').value;
   const customerContact = document.getElementById('quoteCustomerContact').value;
 
@@ -460,6 +461,7 @@ document.getElementById('btnGenerateQuote').addEventListener('click', async () =
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       catalogId: catalogId ? Number(catalogId) : null,
+      customerCompany,
       customerName,
       customerContact,
       items: cart.map((item) => ({ productId: item.productId, quantity: item.quantity })),
@@ -477,14 +479,15 @@ document.getElementById('btnGenerateQuote').addEventListener('click', async () =
 
 // Kakao share
 function initKakaoSdk() {
-  if (!window.KAKAO_JS_KEY) return;
+  const kakaoKey = window.APP_CONFIG && window.APP_CONFIG.KAKAO_JS_KEY;
+  if (!kakaoKey) return;
   const script = document.createElement('script');
   script.src = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js';
   script.crossOrigin = 'anonymous';
   script.onload = () => {
     try {
       if (window.Kakao && !window.Kakao.isInitialized()) {
-        window.Kakao.init(window.KAKAO_JS_KEY);
+        window.Kakao.init(kakaoKey);
       }
     } catch (err) {
       console.error('Kakao init failed', err);

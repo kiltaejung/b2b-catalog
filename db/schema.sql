@@ -41,11 +41,15 @@ CREATE TABLE IF NOT EXISTS catalogs (
 CREATE TABLE IF NOT EXISTS quotes (
   id SERIAL PRIMARY KEY,
   catalog_id INTEGER REFERENCES catalogs(id) ON DELETE SET NULL,
+  customer_company VARCHAR(255),
   customer_name VARCHAR(255),
   customer_contact VARCHAR(255),
   total_amount NUMERIC(14, 2) NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Idempotent migration for databases created before customer_company existed.
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS customer_company VARCHAR(255);
 
 CREATE TABLE IF NOT EXISTS quote_items (
   id SERIAL PRIMARY KEY,

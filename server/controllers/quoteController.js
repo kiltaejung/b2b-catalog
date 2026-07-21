@@ -1,7 +1,7 @@
 const pool = require('../config/db');
 
 async function createQuote(req, res) {
-  const { catalogId, customerName, customerContact, items } = req.body;
+  const { catalogId, customerCompany, customerName, customerContact, items } = req.body;
 
   if (!Array.isArray(items) || !items.length) {
     return res.status(400).json({ error: '견적에 담긴 상품이 없습니다.' });
@@ -37,9 +37,9 @@ async function createQuote(req, res) {
   try {
     await client.query('BEGIN');
     const { rows: quoteRows } = await client.query(
-      `INSERT INTO quotes (catalog_id, customer_name, customer_contact, total_amount)
-       VALUES ($1,$2,$3,$4) RETURNING *`,
-      [catalogId || null, customerName || null, customerContact || null, totalAmount]
+      `INSERT INTO quotes (catalog_id, customer_company, customer_name, customer_contact, total_amount)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [catalogId || null, customerCompany || null, customerName || null, customerContact || null, totalAmount]
     );
     const quote = quoteRows[0];
 
@@ -63,7 +63,13 @@ async function createQuote(req, res) {
 async function getQuote(req, res) {
   const { rows: quoteRows } = await pool.query('SELECT * FROM quotes WHERE id = $1', [req.params.id]);
   if (!quoteRows.length) return res.status(404).json({ error: '견적서를 찾을 수 없습니다.' });
-  const { rows: items } = await pool.query('SELECT * FROM quote_items WHERE quote_id = $1', [req.params.id]);
+  const { rows: items } = await pool.query(
+    `SELECT qi.*, p.image_url AS product_image_url
+     FROM quote_items qi
+     LEFT JOIN products p ON p.id = qi.product_id
+     WHERE qi.quote_id = $1`,
+    [req.params.id]
+  );
   res.json({ quote: { ...quoteRows[0], items } });
 }
 

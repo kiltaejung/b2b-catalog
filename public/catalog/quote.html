@@ -4,56 +4,134 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>견적서</title>
+<script src="/config.js"></script>
 <style>
-  body { font-family: -apple-system, "Segoe UI", Pretendard, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #1e293b; }
-  h1 { font-size: 1.4rem; border-bottom: 3px solid #1e3a8a; padding-bottom: 0.5rem; }
-  table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-  th, td { border: 1px solid #e2e8f0; padding: 0.6rem; text-align: left; font-size: 0.9rem; }
+  body { font-family: -apple-system, "Segoe UI", Pretendard, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; color: #1e293b; }
+  .doc-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #1e3a8a; padding-bottom: 0.6rem; }
+  .doc-header h1 { font-size: 1.5rem; margin: 0; }
+  .doc-header img.logo { height: 32px; }
+  .doc-meta { margin: 0.75rem 0 1.25rem; font-size: 0.85rem; color: #475569; display: flex; gap: 1.5rem; flex-wrap: wrap; }
+  .party-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem; }
+  .party-box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.9rem 1rem; }
+  .party-box h2 { font-size: 0.85rem; color: #64748b; margin: 0 0 0.6rem; letter-spacing: 0.05em; }
+  .party-row { display: flex; font-size: 0.85rem; padding: 0.2rem 0; }
+  .party-row .label { width: 72px; color: #64748b; flex-shrink: 0; }
+  .party-row .value { display: flex; align-items: center; gap: 0.35rem; }
+  img.stamp { height: 42px; mix-blend-mode: multiply; }
+  table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+  th, td { border: 1px solid #e2e8f0; padding: 0.55rem; text-align: left; font-size: 0.85rem; }
   th { background: #f8fafc; }
-  .meta { margin: 1rem 0; font-size: 0.9rem; color: #475569; }
+  td.num, th.num { text-align: right; }
+  td.img-cell img { width: 44px; height: 44px; object-fit: cover; border-radius: 4px; background: #f1f5f9; }
   .total-row td { font-weight: 700; font-size: 1rem; }
+  .bank-box { margin-top: 1.25rem; padding: 0.9rem 1rem; background: #f8fafc; border-radius: 8px; font-size: 0.85rem; }
+  .bank-box strong { color: #1e3a8a; }
   .print-btn { margin-top: 1.5rem; padding: 0.6rem 1.2rem; background: #1e3a8a; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
   @media print { .print-btn { display: none; } }
 </style>
 </head>
 <body>
-  <h1>견적서</h1>
-  <div class="meta" id="quoteMeta"></div>
+  <div class="doc-header">
+    <h1>견적서</h1>
+    <img class="logo" id="companyLogo" src="" alt="" style="display:none" />
+  </div>
+  <div class="doc-meta" id="quoteMeta"></div>
+
+  <div class="party-grid">
+    <div class="party-box">
+      <h2>공급자</h2>
+      <div class="party-row"><div class="label">상호</div><div class="value" id="supplierName"></div></div>
+      <div class="party-row"><div class="label">등록번호</div><div class="value" id="supplierBizNo"></div></div>
+      <div class="party-row"><div class="label">대표자</div><div class="value" id="supplierCeo"></div></div>
+      <div class="party-row"><div class="label">연락처</div><div class="value" id="supplierPhone"></div></div>
+      <div class="party-row"><div class="label">이메일</div><div class="value" id="supplierEmail"></div></div>
+    </div>
+    <div class="party-box">
+      <h2>공급받는자</h2>
+      <div class="party-row"><div class="label">상호명</div><div class="value" id="customerCompany"></div></div>
+      <div class="party-row"><div class="label">담당자</div><div class="value" id="customerName"></div></div>
+      <div class="party-row"><div class="label">연락처</div><div class="value" id="customerContact"></div></div>
+    </div>
+  </div>
+
   <table>
     <thead>
-      <tr><th>상품코드</th><th>상품명</th><th>단가</th><th>수량</th><th>소계</th></tr>
+      <tr><th>이미지</th><th>상품코드</th><th>상품명</th><th class="num">단가</th><th class="num">수량</th><th class="num">소계</th></tr>
     </thead>
     <tbody id="quoteItems"></tbody>
     <tfoot>
-      <tr class="total-row"><td colspan="4">합계</td><td id="quoteTotal"></td></tr>
+      <tr class="total-row"><td colspan="5">합계</td><td class="num" id="quoteTotal"></td></tr>
     </tfoot>
   </table>
+
+  <div class="bank-box" id="bankBox"></div>
+
   <button class="print-btn" type="button" onclick="window.print()">인쇄 / PDF 저장</button>
 
   <script>
     const id = new URLSearchParams(window.location.search).get('id');
+    const config = window.APP_CONFIG || {};
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function renderSupplierInfo() {
+      document.getElementById('supplierName').textContent = config.COMPANY_NAME || '-';
+      document.getElementById('supplierBizNo').textContent = config.COMPANY_BIZ_NO || '-';
+      document.getElementById('supplierCeo').innerHTML = `
+        <span>${escapeHtml(config.COMPANY_CEO || '-')}</span>
+        ${config.COMPANY_STAMP_URL ? `<img class="stamp" src="${config.COMPANY_STAMP_URL}" alt="직인" />` : ''}
+      `;
+      document.getElementById('supplierPhone').textContent = config.COMPANY_PHONE || '-';
+      document.getElementById('supplierEmail').textContent = config.COMPANY_EMAIL || '-';
+
+      if (config.COMPANY_LOGO_URL) {
+        const logo = document.getElementById('companyLogo');
+        logo.src = config.COMPANY_LOGO_URL;
+        logo.style.display = '';
+      }
+
+      document.getElementById('bankBox').innerHTML = `
+        <strong>결제 계좌 정보</strong><br />
+        예금주: ${escapeHtml(config.BANK_ACCOUNT_HOLDER || '-')} ·
+        거래은행: ${escapeHtml(config.BANK_NAME || '-')} ·
+        계좌번호: ${escapeHtml(config.BANK_ACCOUNT_NUMBER || '-')}
+      `;
+    }
 
     async function load() {
+      renderSupplierInfo();
+
       const res = await fetch(`/api/quotes/${id}`);
       const data = await res.json();
       if (!res.ok) {
-        document.body.innerHTML = `<p>${data.error || '견적서를 불러올 수 없습니다.'}</p>`;
+        document.body.innerHTML = `<p>${escapeHtml(data.error || '견적서를 불러올 수 없습니다.')}</p>`;
         return;
       }
       const quote = data.quote;
       document.getElementById('quoteMeta').innerHTML = `
-        견적번호: #${quote.id}<br />
-        고객명: ${quote.customer_name || '-'}<br />
-        연락처: ${quote.customer_contact || '-'}<br />
-        작성일: ${new Date(quote.created_at).toLocaleString('ko-KR')}
+        <span>견적번호: #${quote.id}</span>
+        <span>작성일: ${new Date(quote.created_at).toLocaleString('ko-KR')}</span>
+        <span>유효기간: 견적일로부터 30일</span>
       `;
+      document.getElementById('customerCompany').textContent = quote.customer_company || '-';
+      document.getElementById('customerName').textContent = quote.customer_name || '-';
+      document.getElementById('customerContact').textContent = quote.customer_contact || '-';
+
       document.getElementById('quoteItems').innerHTML = quote.items.map((item) => `
         <tr>
-          <td>${item.product_code}</td>
-          <td>${item.product_name}</td>
-          <td>${Number(item.unit_price).toLocaleString()}원</td>
-          <td>${item.quantity}</td>
-          <td>${Number(item.subtotal).toLocaleString()}원</td>
+          <td class="img-cell"><img src="${item.product_image_url || ''}" onerror="this.src='/assets/no-image.svg'" alt="" /></td>
+          <td>${escapeHtml(item.product_code)}</td>
+          <td>${escapeHtml(item.product_name)}</td>
+          <td class="num">${Number(item.unit_price).toLocaleString()}원</td>
+          <td class="num">${item.quantity}</td>
+          <td class="num">${Number(item.subtotal).toLocaleString()}원</td>
         </tr>
       `).join('');
       document.getElementById('quoteTotal').textContent = `${Number(quote.total_amount).toLocaleString()}원`;
