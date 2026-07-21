@@ -30,6 +30,18 @@
   .bank-box .bank-line { padding: 0.15rem 0; }
   .print-btn { margin-top: 1.5rem; padding: 0.6rem 1.2rem; background: #1e3a8a; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
   @media print { .print-btn { display: none; } }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-scroll table { min-width: 520px; }
+  .table-scroll th { white-space: nowrap; }
+
+  @media (max-width: 640px) {
+    body { margin: 1rem auto; padding: 0 0.75rem; }
+    .party-grid { grid-template-columns: 1fr; }
+    .doc-header h1 { font-size: 1.2rem; }
+    .doc-header img.logo { height: 26px; }
+    .doc-meta { gap: 0.6rem 1rem; font-size: 0.8rem; }
+    .print-btn { width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -56,15 +68,17 @@
     </div>
   </div>
 
-  <table>
-    <thead>
-      <tr><th>이미지</th><th>상품코드</th><th>상품명</th><th class="num">단가</th><th class="num">수량</th><th class="num">소계</th></tr>
-    </thead>
-    <tbody id="quoteItems"></tbody>
-    <tfoot>
-      <tr class="total-row"><td colspan="5" class="num">합계</td><td class="num" id="quoteTotal"></td></tr>
-    </tfoot>
-  </table>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>이미지</th><th>상품코드</th><th>상품명</th><th class="num">단가</th><th class="num">수량</th><th class="num">소계</th></tr>
+      </thead>
+      <tbody id="quoteItems"></tbody>
+      <tfoot>
+        <tr class="total-row"><td colspan="5" class="num">합계</td><td class="num" id="quoteTotal"></td></tr>
+      </tfoot>
+    </table>
+  </div>
 
   <div class="bank-box" id="bankBox"></div>
 

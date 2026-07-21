@@ -371,4 +371,13 @@ html, body {
   .search-box { width: 60vw; }
   .toolbar { flex-wrap: wrap; height: auto; padding: 0.5rem; gap: 0.5rem; }
   .book-viewport { inset: 96px 0 64px 0; }
+  .cart-drawer { width: 100%; right: -100%; }
+  .nav-bar { flex-wrap: wrap; height: auto; padding: 0.5rem; gap: 0.5rem; }
+  .page-indicator input { width: 44px; }
+}
+
+@media (max-width: 480px) {
+  .product-grid { grid-template-columns: 1fr; }
+  .search-box { width: 46vw; }
+  .toolbar-right { gap: 0.3rem; }
 }
