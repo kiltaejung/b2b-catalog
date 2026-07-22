@@ -21,7 +21,9 @@ const params = new URLSearchParams(window.location.search);
 const catalogId = params.get('id');
 
 const bookViewport = document.getElementById('bookViewport');
-const bookFlipEl = document.getElementById('bookFlip');
+// Reassigned when PageFlip is torn down and rebuilt with a different page
+// ratio on crossing SPREAD_BREAKPOINT — see ensurePageFlipMode().
+let bookFlipEl = document.getElementById('bookFlip');
 const bookStage = document.getElementById('bookStage');
 const pageCurrentText = document.getElementById('pageCurrentText');
 const totalPagesEl = document.getElementById('totalPages');
@@ -261,24 +263,28 @@ function updateNavUI(oneBasedPage) {
   updateSoloCentering();
 }
 
-function initPageFlip() {
-  // width:height must match the .book-flip aspect-ratio exactly — PageFlip's
-  // "stretch" mode derives its internal page geometry from this ratio, and
-  // any mismatch against the container's real rendered ratio leaves gaps
-  // and breaks its own drag/corner hit-testing (see the CSS comment).
-  // minWidth is set so the portrait/landscape switch (at 2×minWidth) lands
-  // on the same 860px container width where the CSS aspect-ratio itself
-  // switches (from the @media breakpoint below) — otherwise there's a
-  // window-width range where the two disagree and the gap/hit-test bug
-  // above comes right back.
-  pageFlip = new St.PageFlip(bookFlipEl, {
-    width: 480,
-    height: 626,
+// width:height must match the .book-flip aspect-ratio exactly — PageFlip's
+// "stretch" mode derives its internal page geometry from this ratio, and
+// any mismatch against the container's real rendered ratio leaves gaps
+// and breaks its own drag/corner hit-testing (see the CSS comment).
+// Three modes, each its own ratio:
+//  - 'phone': true phone widths get a much taller/narrower ratio than a
+//    spread book page, matching a phone screen's own aspect far more
+//    closely so the page fills nearly the whole screen height instead of
+//    leaving empty space above/below it.
+//  - 'tabletSingle': single-page mode above phone width (portrait
+//    tablets) keeps the original book-like ratio — reusing the 'phone'
+//    ratio there would force the page narrower than the screen actually
+//    allows, since a fixed ratio's width is capped by the shorter of
+//    (available width) and (available height × ratio), and a tablet's
+//    available height isn't enough to also justify a phone-narrow width.
+//  - 'spread': unchanged, tablet-landscape/desktop two-page view.
+// PageFlip has no live setter for this ratio, so switching between these
+// tears the instance down and builds a fresh one (see ensurePageFlipMode()).
+// (PHONE_MODE_BREAKPOINT is defined further down, next to getLayoutMode().)
+function getPageFlipSettings(mode) {
+  const base = {
     size: 'stretch',
-    minWidth: 430,
-    maxWidth: 660,
-    minHeight: 560,
-    maxHeight: 860,
     maxShadowOpacity: 0.5,
     showCover: true,
     usePortrait: true,
@@ -286,13 +292,18 @@ function initPageFlip() {
     // The cursor-follow "corner lift" hint (default on) made the whole book
     // visibly wobble any time the mouse moved over it, even with no click.
     showPageCorners: false,
-  });
-  pageFlip.loadFromHTML(buildPageElements());
-  pageFlip.on('flip', (e) => {
-    state.currentPageIndex = e.data;
-    updateNavUI(e.data + 1);
-  });
-  updateNavUI(1);
+  };
+  if (mode === 'phone') {
+    return { ...base, width: 480, height: 924, minWidth: 430, maxWidth: 480, minHeight: 827, maxHeight: 924 };
+  }
+  if (mode === 'tabletSingle') {
+    return { ...base, width: 480, height: 626, minWidth: 430, maxWidth: 660, minHeight: 560, maxHeight: 860 };
+  }
+  // minWidth is set so the portrait/landscape switch (at 2×minWidth) lands
+  // on the same 860px container width where SPREAD_BREAKPOINT itself
+  // switches — otherwise there's a window-width range where the two
+  // disagree and the gap/hit-test bug above comes right back.
+  return { ...base, width: 480, height: 626, minWidth: 430, maxWidth: 660, minHeight: 560, maxHeight: 860 };
 }
 
 // PageFlip treats any mousedown/touchstart on a page as the start of a
@@ -307,8 +318,63 @@ const INTERACTIVE_SELECTOR = 'button, a, input, [data-goto], [data-add-cart], [d
 function stopIfInteractive(e) {
   if (e.target.closest(INTERACTIVE_SELECTOR)) e.stopPropagation();
 }
-bookFlipEl.addEventListener('mousedown', stopIfInteractive, true);
-bookFlipEl.addEventListener('touchstart', stopIfInteractive, true);
+function handleBookFlipClick(e) {
+  const gotoEl = e.target.closest('[data-goto]');
+  if (gotoEl) {
+    goToPage(Number(gotoEl.dataset.goto));
+    return;
+  }
+  const downloadEl = e.target.closest('[data-cover-download]');
+  if (downloadEl) {
+    triggerFullExport();
+    return;
+  }
+  const addCartEl = e.target.closest('[data-add-cart]');
+  if (addCartEl) {
+    addToCart(Number(addCartEl.dataset.addCart));
+  }
+}
+// Bound to whichever element bookFlipEl currently points at — called once
+// at first load and again every time ensurePageFlipMode() replaces it.
+function attachBookFlipListeners() {
+  bookFlipEl.addEventListener('mousedown', stopIfInteractive, true);
+  bookFlipEl.addEventListener('touchstart', stopIfInteractive, true);
+  bookFlipEl.addEventListener('click', handleBookFlipClick);
+}
+attachBookFlipListeners();
+
+// Builds (or, on a single<->spread crossing, tears down and rebuilds with
+// the mode-appropriate ratio from getPageFlipSettings()) the PageFlip
+// instance. A no-op while state.pages hasn't loaded yet, and a no-op if
+// the mode hasn't actually changed since last time.
+let pageFlipMode = null;
+function ensurePageFlipMode() {
+  if (!state.pages.length) return;
+  const mode = getLayoutMode();
+  if (mode === pageFlipMode) return;
+  const wasInitialized = pageFlipMode !== null;
+  const savedIndex = wasInitialized ? state.currentPageIndex : 0;
+  pageFlipMode = mode;
+
+  if (wasInitialized) {
+    pageFlip.destroy();
+    const fresh = document.createElement('div');
+    fresh.id = 'bookFlip';
+    fresh.className = 'book-flip';
+    bookStage.appendChild(fresh);
+    bookFlipEl = fresh;
+    attachBookFlipListeners();
+  }
+
+  pageFlip = new St.PageFlip(bookFlipEl, getPageFlipSettings(mode));
+  pageFlip.loadFromHTML(buildPageElements());
+  pageFlip.on('flip', (e) => {
+    state.currentPageIndex = e.data;
+    updateNavUI(e.data + 1);
+  });
+  if (wasInitialized) pageFlip.turnToPage(savedIndex);
+  updateNavUI(savedIndex + 1);
+}
 
 function goToPage(oneBasedIndex) {
   const total = state.pages.length;
@@ -333,23 +399,6 @@ function first() {
 function last() {
   goToPage(state.pages.length);
 }
-
-bookFlipEl.addEventListener('click', (e) => {
-  const gotoEl = e.target.closest('[data-goto]');
-  if (gotoEl) {
-    goToPage(Number(gotoEl.dataset.goto));
-    return;
-  }
-  const downloadEl = e.target.closest('[data-cover-download]');
-  if (downloadEl) {
-    triggerFullExport();
-    return;
-  }
-  const addCartEl = e.target.closest('[data-add-cart]');
-  if (addCartEl) {
-    addToCart(Number(addCartEl.dataset.addCart));
-  }
-});
 
 document.getElementById('btnNext').addEventListener('click', next);
 document.getElementById('btnPrev').addEventListener('click', prev);
@@ -1096,11 +1145,28 @@ function syncToolbarHeight() {
 }
 
 // Below this width, the book stays single-page (portrait); above it, a
-// two-page spread. Must match minWidth in initPageFlip() (2×minWidth=860)
-// so PageFlip's own orientation switch and our sizing agree on the same
-// breakpoint.
+// two-page spread. Must match minWidth in getPageFlipSettings() (2×minWidth
+// =860) so PageFlip's own orientation switch and our sizing agree on the
+// same breakpoint.
 const SPREAD_BREAKPOINT = 860;
-const PAGE_RATIO = 660 / 860;
+// See getPageFlipSettings()'s 'phone' vs 'tabletSingle' comment: only true
+// phone widths get the taller ratio, since that ratio's width is capped by
+// (available height × ratio) — on a portrait tablet, the available height
+// isn't enough to justify a wider page at that same tall ratio, so it
+// would come out narrower than the tablet screen actually allows.
+const PHONE_MODE_BREAKPOINT = 480;
+const PAGE_RATIO_PHONE = 480 / 924;
+// Unchanged from before this file had per-mode ratios at all — kept as
+// its own name for 'tabletSingle' even though it's numerically identical
+// to PAGE_RATIO_SPREAD, since the two modes vary independently now.
+const PAGE_RATIO_SPREAD = 660 / 860;
+const PAGE_RATIO_TABLET_SINGLE = PAGE_RATIO_SPREAD;
+
+function getLayoutMode() {
+  if (window.innerWidth > SPREAD_BREAKPOINT) return 'spread';
+  if (window.innerWidth <= PHONE_MODE_BREAKPOINT) return 'phone';
+  return 'tabletSingle';
+}
 
 // Computes the exact pixel box PageFlip should render at: the largest
 // size that (a) fits the space left after the toolbar/bottom bar and
@@ -1110,7 +1176,8 @@ const PAGE_RATIO = 660 / 860;
 // flex descendant with no definite width of its own to shrink-to-fit
 // against, so this is done with real arithmetic instead.
 function sizeBookFlip() {
-  const isSingle = window.innerWidth <= SPREAD_BREAKPOINT;
+  const mode = getLayoutMode();
+  const isSingle = mode !== 'spread';
   // While the toolbar/bottom clusters are auto-hidden (still in the layout,
   // just translated off-screen), the book claims that freed space too —
   // it just doesn't need to steer clear of them anymore.
@@ -1123,7 +1190,7 @@ function sizeBookFlip() {
   // essentially all the space left (~85-90% of the viewport height),
   // not be pushed in further by generous margins on top of that.
   const margin = state.chromeHidden ? 4 : (isSingle ? 6 : 10);
-  const maxH = Math.min(window.innerHeight - toolbarH - bottomH - margin, 860);
+  const maxH = Math.min(window.innerHeight - toolbarH - bottomH - margin, mode === 'phone' ? 924 : 860);
   // In spread mode the 1320 cap alone ignored how narrow the actual window
   // was just above SPREAD_BREAKPOINT (e.g. 900px wide): the requested width
   // came out wider than the viewport, got visually clamped by the parent,
@@ -1132,8 +1199,12 @@ function sizeBookFlip() {
   // rendered width, and reintroducing the very page-internal scroll this
   // sizing function exists to prevent. Capping maxW by the real window
   // width too keeps the requested and rendered widths in agreement.
-  const maxW = isSingle ? Math.min(window.innerWidth * 0.98, 660) : Math.min(window.innerWidth * 0.98, 1320);
-  const ratio = isSingle ? PAGE_RATIO : PAGE_RATIO * 2;
+  const maxW = mode === 'phone'
+    ? Math.min(window.innerWidth * 0.98, 480)
+    : mode === 'tabletSingle'
+      ? Math.min(window.innerWidth * 0.98, 660)
+      : Math.min(window.innerWidth * 0.98, 1320);
+  const ratio = mode === 'phone' ? PAGE_RATIO_PHONE : mode === 'tabletSingle' ? PAGE_RATIO_TABLET_SINGLE : PAGE_RATIO_SPREAD * 2;
 
   const w = Math.min(maxW, maxH * ratio);
   // Sized on #bookStage, not #bookFlip itself — PageFlip's own "autoSize"
@@ -1147,6 +1218,7 @@ function sizeBookFlip() {
 
 function syncLayout() {
   syncToolbarHeight();
+  ensurePageFlipMode();
   sizeBookFlip();
   if (pageFlip) updateSoloCentering();
 }
@@ -1239,7 +1311,7 @@ async function init() {
     state.pages = built.pages;
     state.tocEntries = built.tocEntries;
 
-    initPageFlip();
+    syncLayout();
     const initialPage = Number(params.get('page')) || 1;
     if (initialPage > 1) goToPage(initialPage);
     renderCart();

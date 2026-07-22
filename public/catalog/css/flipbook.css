@@ -779,6 +779,32 @@ html, body {
   .product-grid-4 .product-tile .btn-add-cart { margin-top: 0.15rem; padding: 0.15rem; font-size: 0.62rem; }
 }
 
+/* Phone mode's page ratio is much taller than tabletSingle/spread's (see
+   getPageFlipSettings()), so most phones in portrait have noticeably more
+   vertical room per row than the compact tiers above were tuned for —
+   those tiers were sized against the OLD, shorter single-page ratio and
+   would otherwise leave a large empty gap below the grid. Gated on
+   min-height (not just max-width) because a short viewport — landscape,
+   or a small old phone — still only has the compact tiers' amount of
+   room regardless of how narrow it is. */
+@media (max-width: 480px) and (min-height: 700px) {
+  .product-grid-6 .product-tile { padding: 0.32rem; }
+  .product-grid-6 .product-tile img { height: 78px; }
+  .product-grid-6 .brand-badge { display: block; font-size: 0.58rem; padding: 0.08rem 0.28rem; }
+  .product-grid-6 .product-tile .tile-name { font-size: 0.74rem; }
+  .product-grid-6 .price-badge { font-size: 0.72rem; padding: 0.1rem 0.4rem; margin-top: 0.18rem; }
+  .product-grid-6 .tile-meta { display: block; font-size: 0.62rem; }
+  .product-grid-6 .product-tile .btn-add-cart { margin-top: 0.22rem; padding: 0.22rem; font-size: 0.7rem; }
+
+  .product-grid-4 .product-tile { padding: 0.4rem; }
+  .product-grid-4 .product-tile img { height: 140px; }
+  .product-grid-4 .brand-badge { font-size: 0.68rem; }
+  .product-grid-4 .product-tile .tile-name { font-size: 0.82rem; }
+  .product-grid-4 .price-badge { font-size: 0.8rem; padding: 0.12rem 0.45rem; }
+  .product-grid-4 .tile-meta { display: block; font-size: 0.68rem; }
+  .product-grid-4 .product-tile .btn-add-cart { margin-top: 0.3rem; padding: 0.3rem; font-size: 0.75rem; }
+}
+
 /* The width just past SPREAD_BREAKPOINT (860) is a transitional dip: each
    of the 2 spread pages is suddenly half as wide as the single-page layout
    was, but not yet wide enough for maxH*ratio to be the binding constraint
