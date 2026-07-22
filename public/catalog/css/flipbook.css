@@ -321,17 +321,21 @@ html, body {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
 }
 .product-tile {
   box-sizing: border-box;
-  width: calc((100% - 0.4rem) / 2);
+  /* The 1px slack keeps this a hair under an exact 2-per-row fit — with
+     zero slack, sub-pixel rounding on some viewport widths pushed the
+     second tile's fractional-pixel edge just past the container and
+     flex-wrap dropped it to its own row (6 rows of 1 instead of 3 of 2). */
+  width: calc((100% - 0.3rem) / 2 - 1px);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0.35rem;
+  padding: 0.25rem;
   background: #fff;
 }
-.product-tile img { width: 100%; height: 104px; object-fit: contain; object-position: center; border-radius: 6px; background: #f1f5f9; }
+.product-tile img { width: 100%; height: 148px; object-fit: contain; object-position: center; border-radius: 6px; background: #f1f5f9; }
 /* Overlaid on the image itself (like the promo stamp) rather than its own
    line, so the brand tag no longer eats into the card's text budget —
    the image is the priority element, not the badge. */
@@ -346,23 +350,23 @@ html, body {
   border-radius: 4px;
   line-height: 1.4;
 }
-.product-tile .tile-name { font-size: 0.75rem; font-weight: 600; line-height: 1.2; height: 1.8em; overflow: hidden; margin-top: 0.2rem; }
+.product-tile .tile-name { font-size: 0.75rem; font-weight: 600; line-height: 1.15; height: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.12rem; }
 .price-badge {
   display: inline-block;
-  margin-top: 0.2rem;
+  margin-top: 0.12rem;
   background: var(--accent-soft);
   color: var(--accent);
   font-weight: 700;
-  font-size: 0.75rem;
-  padding: 0.1rem 0.4rem;
+  font-size: 0.73rem;
+  padding: 0.06rem 0.35rem;
   border-radius: 4px;
 }
-.price-badge .original { color: #94a3b8; text-decoration: line-through; font-weight: 400; margin-right: 0.3rem; font-size: 0.66rem; }
+.price-badge .original { color: #94a3b8; text-decoration: line-through; font-weight: 400; margin-right: 0.3rem; font-size: 0.64rem; }
 .tile-meta {
-  margin-top: 0.15rem;
-  font-size: 0.65rem;
+  margin-top: 0.1rem;
+  font-size: 0.63rem;
   color: #64748b;
-  line-height: 1.15;
+  line-height: 1.1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -370,21 +374,21 @@ html, body {
 .product-tile .btn-add-cart {
   display: block;
   width: 100%;
-  margin-top: 0.25rem;
-  padding: 0.25rem;
-  font-size: 0.72rem;
+  margin-top: 0.18rem;
+  padding: 0.18rem;
+  font-size: 0.7rem;
 }
 
 /* 4-product page: fewer rows to fit (2 vs 3), so imagery/type can run
    noticeably larger while still guaranteeing no internal page scroll. */
-.product-grid-4 .product-tile { padding: 0.5rem; }
-.product-grid-4 .product-tile img { height: 190px; }
+.product-grid-4 .product-tile { padding: 0.35rem; }
+.product-grid-4 .product-tile img { height: 246px; }
 .product-grid-4 .brand-badge { font-size: 0.7rem; padding: 0.12rem 0.4rem; }
-.product-grid-4 .product-tile .tile-name { font-size: 0.88rem; height: 2.1em; }
-.product-grid-4 .price-badge { font-size: 0.88rem; padding: 0.15rem 0.55rem; margin-top: 0.3rem; }
-.product-grid-4 .price-badge .original { font-size: 0.74rem; }
-.product-grid-4 .tile-meta { font-size: 0.75rem; margin-top: 0.25rem; }
-.product-grid-4 .product-tile .btn-add-cart { margin-top: 0.4rem; padding: 0.35rem; font-size: 0.8rem; }
+.product-grid-4 .product-tile .tile-name { font-size: 0.85rem; height: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.product-grid-4 .price-badge { font-size: 0.85rem; padding: 0.1rem 0.5rem; margin-top: 0.2rem; }
+.product-grid-4 .price-badge .original { font-size: 0.72rem; }
+.product-grid-4 .tile-meta { font-size: 0.72rem; margin-top: 0.18rem; }
+.product-grid-4 .product-tile .btn-add-cart { margin-top: 0.28rem; padding: 0.28rem; font-size: 0.78rem; }
 
 /* Promo stamp (강력추천 / 베스트) */
 .image-frame { position: relative; }
@@ -800,4 +804,14 @@ html, body {
   .product-grid-4 .price-badge .original { font-size: 0.64rem; }
   .product-grid-4 .tile-meta { display: none; }
   .product-grid-4 .product-tile .btn-add-cart { margin-top: 0.22rem; padding: 0.22rem; font-size: 0.7rem; }
+}
+
+/* The upper half of the spread-mode dip (page box already recovering
+   toward its 1141px+ plateau) has more headroom than the 861-1140 tier
+   above, so brand badge/tile-meta can stay visible and the image can run
+   bigger — just not quite as big as the full plateau value used above
+   1250px. */
+@media (min-width: 1141px) and (max-width: 1249px) {
+  .product-grid-6 .product-tile img { height: 128px; }
+  .product-grid-4 .product-tile img { height: 210px; }
 }
