@@ -11,7 +11,72 @@ const productForm = document.getElementById('productForm');
 const formErrors = document.getElementById('formErrors');
 const modalTitle = document.getElementById('modalTitle');
 
+const imageAdjustSection = document.getElementById('imageAdjustSection');
+const imageAdjustHint = document.getElementById('imageAdjustHint');
+const imageAdjustPreviewImg = document.getElementById('imageAdjustPreviewImg');
+const imageAdjustStatus = document.getElementById('imageAdjustStatus');
+const imgAdjustZoom = document.getElementById('imgAdjustZoom');
+const imgAdjustOffsetX = document.getElementById('imgAdjustOffsetX');
+const imgAdjustOffsetY = document.getElementById('imgAdjustOffsetY');
+
 let searchTimer = null;
+
+function updateImageAdjustPreviewTransform() {
+  const zoom = Number(imgAdjustZoom.value);
+  const offsetX = Number(imgAdjustOffsetX.value);
+  const offsetY = Number(imgAdjustOffsetY.value);
+  imageAdjustPreviewImg.style.transform = `translate(${offsetX}%, ${offsetY}%) scale(${zoom})`;
+}
+
+function setImageAdjustFromProduct(product) {
+  if (!product || !product.id) {
+    imageAdjustSection.style.display = 'none';
+    imageAdjustHint.style.display = '';
+    return;
+  }
+  imageAdjustSection.style.display = '';
+  imageAdjustHint.style.display = 'none';
+  imageAdjustStatus.textContent = '';
+  imageAdjustPreviewImg.src = product.cropped_image_url || product.image_url;
+  imgAdjustZoom.value = product.image_zoom ?? 1;
+  imgAdjustOffsetX.value = product.image_offset_x ?? 0;
+  imgAdjustOffsetY.value = product.image_offset_y ?? 0;
+  updateImageAdjustPreviewTransform();
+}
+
+async function saveImageAdjust() {
+  const id = document.getElementById('productId').value;
+  if (!id) return;
+  imageAdjustStatus.textContent = '저장 중...';
+  try {
+    const res = await fetch(`/api/products/${id}/image-adjust`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        zoom: Number(imgAdjustZoom.value),
+        offsetX: Number(imgAdjustOffsetX.value),
+        offsetY: Number(imgAdjustOffsetY.value),
+      }),
+    });
+    imageAdjustStatus.textContent = res.ok ? '저장됨' : '저장 실패';
+  } catch {
+    imageAdjustStatus.textContent = '저장 실패';
+  }
+  setTimeout(() => { imageAdjustStatus.textContent = ''; }, 1500);
+}
+
+[imgAdjustZoom, imgAdjustOffsetX, imgAdjustOffsetY].forEach((el) => {
+  el.addEventListener('input', updateImageAdjustPreviewTransform);
+  el.addEventListener('change', saveImageAdjust);
+});
+
+document.getElementById('btnResetImageAdjust').addEventListener('click', () => {
+  imgAdjustZoom.value = 1;
+  imgAdjustOffsetX.value = 0;
+  imgAdjustOffsetY.value = 0;
+  updateImageAdjustPreviewTransform();
+  saveImageAdjust();
+});
 
 async function fetchProducts(search = '') {
   const res = await fetch(`/api/products${search ? `?search=${encodeURIComponent(search)}` : ''}`);
@@ -52,6 +117,7 @@ function openModal(product = null) {
       if (el) el.value = product[field] ?? '';
     });
   }
+  setImageAdjustFromProduct(product);
   modalBackdrop.classList.add('open');
 }
 

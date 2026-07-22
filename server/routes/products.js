@@ -10,6 +10,7 @@ router.get('/', controller.listProducts);
 router.get('/:id', controller.getProduct);
 router.post('/', controller.createProduct);
 router.put('/:id', controller.updateProduct);
+router.patch('/:id/image-adjust', controller.updateImageAdjust);
 router.delete('/:id', controller.deleteProduct);
 
 module.exports = router;

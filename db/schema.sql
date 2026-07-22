@@ -31,6 +31,15 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS packaging VARCHAR(255);
 ALTER TABLE products ADD COLUMN IF NOT EXISTS tax_type VARCHAR(20);
 ALTER TABLE products ADD COLUMN IF NOT EXISTS promo_badge VARCHAR(20);
 
+-- Auto-cropped version of image_url (whitespace/solid-color margins trimmed).
+-- NULL means no crop was produced (skipped or failed) - original image_url is used as-is.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS cropped_image_url TEXT;
+
+-- Manual catalog image adjustment (admin zoom/pan on top of the cropped or original image).
+ALTER TABLE products ADD COLUMN IF NOT EXISTS image_zoom NUMERIC(4, 2) NOT NULL DEFAULT 1;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS image_offset_x NUMERIC(5, 2) NOT NULL DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS image_offset_y NUMERIC(5, 2) NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS catalogs (
   id SERIAL PRIMARY KEY,
   season_name VARCHAR(255),

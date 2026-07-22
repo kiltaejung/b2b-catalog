@@ -2,6 +2,27 @@ const pool = require('../config/db');
 const { buildTemplateBuffer, parseWorkbookBuffer } = require('../services/excelService');
 const { validateRows } = require('../services/validationService');
 const { buildProductExportWorkbook, buildExportFilename, buildExportFilenameAscii } = require('../services/exportService');
+const { autoCropProductImage } = require('../services/imageCropService');
+
+// Runs the auto-crop pipeline only when the image actually changed (or is
+// new), storing a successful result in the uploads table. Returns the
+// cropped_image_url to persist (null if no crop was produced) and whether
+// the source image changed (used to decide if manual zoom/pan should reset).
+async function resolveCroppedImage(dbClient, imageUrl, existingRow) {
+  const imageChanged = !existingRow || existingRow.image_url !== imageUrl;
+  if (!imageChanged) {
+    return { croppedImageUrl: existingRow.cropped_image_url, imageChanged: false };
+  }
+
+  const result = await autoCropProductImage(imageUrl);
+  if (!result) return { croppedImageUrl: null, imageChanged: true };
+
+  const { rows } = await dbClient.query(
+    'INSERT INTO uploads (mime_type, data) VALUES ($1, $2) RETURNING id',
+    [result.mimeType, result.buffer]
+  );
+  return { croppedImageUrl: `/api/uploads/${rows[0].id}`, imageChanged: true };
+}
 
 function buildFilterClause({ search, category, minPrice, maxPrice }) {
   const clauses = [];
@@ -51,15 +72,18 @@ async function createProduct(req, res) {
   const { validRows, errors } = validateRows([req.body]);
   if (errors.length) return res.status(400).json({ errors });
   const p = validRows[0];
+  const { croppedImageUrl } = await resolveCroppedImage(pool, p.image_url, null);
   try {
     const { rows } = await pool.query(
       `INSERT INTO products
         (display_order, category, product_code, name, brand, image_url, original_price, sale_price,
-         composition, packaging, origin, tax_type, features, description, shipping_info, promo_badge)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+         composition, packaging, origin, tax_type, features, description, shipping_info, promo_badge,
+         cropped_image_url)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        RETURNING *`,
       [p.display_order, p.category, p.product_code, p.name, p.brand, p.image_url, p.original_price, p.sale_price,
-        p.composition, p.packaging, p.origin, p.tax_type, p.features, p.description, p.shipping_info, p.promo_badge]
+        p.composition, p.packaging, p.origin, p.tax_type, p.features, p.description, p.shipping_info, p.promo_badge,
+        croppedImageUrl]
     );
     res.status(201).json({ product: rows[0] });
   } catch (err) {
@@ -74,14 +98,54 @@ async function updateProduct(req, res) {
   const { validRows, errors } = validateRows([req.body]);
   if (errors.length) return res.status(400).json({ errors });
   const p = validRows[0];
+
+  const { rows: existingRows } = await pool.query(
+    'SELECT image_url, cropped_image_url FROM products WHERE id = $1',
+    [req.params.id]
+  );
+  if (!existingRows.length) return res.status(404).json({ error: '상품을 찾을 수 없습니다.' });
+
+  const { croppedImageUrl, imageChanged } = await resolveCroppedImage(pool, p.image_url, existingRows[0]);
+
   const { rows } = await pool.query(
     `UPDATE products SET
       display_order=$1, category=$2, product_code=$3, name=$4, brand=$5, image_url=$6,
       original_price=$7, sale_price=$8, composition=$9, packaging=$10, origin=$11, tax_type=$12,
-      features=$13, description=$14, shipping_info=$15, promo_badge=$16, updated_at=now()
-     WHERE id=$17 RETURNING *`,
+      features=$13, description=$14, shipping_info=$15, promo_badge=$16, cropped_image_url=$17,
+      image_zoom = CASE WHEN $18 THEN 1 ELSE image_zoom END,
+      image_offset_x = CASE WHEN $18 THEN 0 ELSE image_offset_x END,
+      image_offset_y = CASE WHEN $18 THEN 0 ELSE image_offset_y END,
+      updated_at=now()
+     WHERE id=$19 RETURNING *`,
     [p.display_order, p.category, p.product_code, p.name, p.brand, p.image_url, p.original_price, p.sale_price,
-      p.composition, p.packaging, p.origin, p.tax_type, p.features, p.description, p.shipping_info, p.promo_badge, req.params.id]
+      p.composition, p.packaging, p.origin, p.tax_type, p.features, p.description, p.shipping_info, p.promo_badge,
+      croppedImageUrl, imageChanged, req.params.id]
+  );
+  if (!rows.length) return res.status(404).json({ error: '상품을 찾을 수 없습니다.' });
+  res.json({ product: rows[0] });
+}
+
+const IMAGE_ZOOM_MIN = 1;
+const IMAGE_ZOOM_MAX = 3;
+const IMAGE_OFFSET_MAX = 50;
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+async function updateImageAdjust(req, res) {
+  const zoom = Number(req.body.zoom);
+  const offsetX = Number(req.body.offsetX);
+  const offsetY = Number(req.body.offsetY);
+  if (!Number.isFinite(zoom) || !Number.isFinite(offsetX) || !Number.isFinite(offsetY)) {
+    return res.status(400).json({ error: '유효하지 않은 이미지 조정 값입니다.' });
+  }
+
+  const { rows } = await pool.query(
+    `UPDATE products SET image_zoom=$1, image_offset_x=$2, image_offset_y=$3, updated_at=now()
+     WHERE id=$4 RETURNING *`,
+    [clamp(zoom, IMAGE_ZOOM_MIN, IMAGE_ZOOM_MAX), clamp(offsetX, -IMAGE_OFFSET_MAX, IMAGE_OFFSET_MAX),
+      clamp(offsetY, -IMAGE_OFFSET_MAX, IMAGE_OFFSET_MAX), req.params.id]
   );
   if (!rows.length) return res.status(404).json({ error: '상품을 찾을 수 없습니다.' });
   res.json({ product: rows[0] });
@@ -142,32 +206,55 @@ async function uploadProducts(req, res) {
     return res.status(400).json({ errors, validCount: validRows.length });
   }
 
+  // Resolve auto-crop results before opening the write transaction, since
+  // each one may involve a network fetch — we don't want that holding a DB
+  // connection/transaction open. Existing rows are looked up up front so
+  // unchanged images are skipped (not re-cropped) on every re-upload.
+  const { rows: existingRows } = await pool.query(
+    'SELECT product_code, image_url, cropped_image_url FROM products WHERE product_code = ANY($1)',
+    [validRows.map((p) => p.product_code)]
+  );
+  const existingByCode = new Map(existingRows.map((r) => [r.product_code, r]));
+  const cropResults = new Map();
+  for (const p of validRows) {
+    const { croppedImageUrl, imageChanged } = await resolveCroppedImage(pool, p.image_url, existingByCode.get(p.product_code));
+    cropResults.set(p.product_code, { croppedImageUrl, imageChanged });
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     let inserted = 0;
     let updated = 0;
     for (const p of validRows) {
-      const { rows: existing } = await client.query('SELECT id FROM products WHERE product_code = $1', [p.product_code]);
-      if (existing.length) {
+      const { croppedImageUrl, imageChanged } = cropResults.get(p.product_code);
+      const existing = existingByCode.get(p.product_code);
+      if (existing) {
         await client.query(
           `UPDATE products SET
             display_order=$1, category=$2, name=$3, brand=$4, image_url=$5,
             original_price=$6, sale_price=$7, composition=$8, packaging=$9, origin=$10, tax_type=$11,
-            features=$12, description=$13, shipping_info=$14, promo_badge=$15, updated_at=now()
-           WHERE product_code=$16`,
+            features=$12, description=$13, shipping_info=$14, promo_badge=$15, cropped_image_url=$16,
+            image_zoom = CASE WHEN $17 THEN 1 ELSE image_zoom END,
+            image_offset_x = CASE WHEN $17 THEN 0 ELSE image_offset_x END,
+            image_offset_y = CASE WHEN $17 THEN 0 ELSE image_offset_y END,
+            updated_at=now()
+           WHERE product_code=$18`,
           [p.display_order, p.category, p.name, p.brand, p.image_url, p.original_price, p.sale_price,
-            p.composition, p.packaging, p.origin, p.tax_type, p.features, p.description, p.shipping_info, p.promo_badge, p.product_code]
+            p.composition, p.packaging, p.origin, p.tax_type, p.features, p.description, p.shipping_info, p.promo_badge,
+            croppedImageUrl, imageChanged, p.product_code]
         );
         updated += 1;
       } else {
         await client.query(
           `INSERT INTO products
             (display_order, category, product_code, name, brand, image_url, original_price, sale_price,
-             composition, packaging, origin, tax_type, features, description, shipping_info, promo_badge)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+             composition, packaging, origin, tax_type, features, description, shipping_info, promo_badge,
+             cropped_image_url)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
           [p.display_order, p.category, p.product_code, p.name, p.brand, p.image_url, p.original_price, p.sale_price,
-            p.composition, p.packaging, p.origin, p.tax_type, p.features, p.description, p.shipping_info, p.promo_badge]
+            p.composition, p.packaging, p.origin, p.tax_type, p.features, p.description, p.shipping_info, p.promo_badge,
+            croppedImageUrl]
         );
         inserted += 1;
       }
@@ -187,6 +274,7 @@ module.exports = {
   getProduct,
   createProduct,
   updateProduct,
+  updateImageAdjust,
   deleteProduct,
   downloadTemplate,
   exportProducts,

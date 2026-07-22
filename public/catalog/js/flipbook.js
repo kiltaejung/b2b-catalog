@@ -187,7 +187,7 @@ function pageHtml(pageData) {
             ${pageData.products.map((p) => `
               <div class="product-tile">
                 <div class="image-frame">
-                  <img src="${p.imageUrl}" onerror="this.src='/assets/no-image.svg'" alt="${escapeHtml(p.name)}" />
+                  ${productImageHtml(p)}
                   ${p.brand ? `<div class="brand-badge">${escapeHtml(p.brand)}</div>` : ''}
                   ${promoStampHtml(p.promoBadge)}
                 </div>
@@ -227,6 +227,23 @@ function pageHtml(pageData) {
     default:
       return '<div class="page blank"></div>';
   }
+}
+
+// Prefers the auto-cropped (whitespace-trimmed) image when one exists,
+// falling back to the original image_url both as the source (when no crop
+// was produced) and as an onerror fallback (when a stored crop 404s).
+// Manual admin zoom/pan is applied as a CSS transform inside the tile's
+// overflow-hidden image frame.
+function productImageHtml(p) {
+  const src = p.croppedImageUrl || p.imageUrl;
+  const fallback = p.imageUrl || '';
+  const zoom = Number(p.imageZoom) || 1;
+  const offsetX = Number(p.imageOffsetX) || 0;
+  const offsetY = Number(p.imageOffsetY) || 0;
+  const transform = (zoom !== 1 || offsetX !== 0 || offsetY !== 0)
+    ? ` style="transform: translate(${offsetX}%, ${offsetY}%) scale(${zoom});"`
+    : '';
+  return `<img src="${src}" data-fallback="${fallback}" onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; } else { this.onerror = null; this.src = '/assets/no-image.svg'; }" alt="${escapeHtml(p.name)}"${transform} />`;
 }
 
 function promoStampHtml(promoBadge) {
@@ -1109,7 +1126,10 @@ function pageLabel(pageData) {
 }
 
 function pageThumbImage(pageData) {
-  if (pageData.type === 'categoryGrid' && pageData.products.length) return pageData.products[0].imageUrl;
+  if (pageData.type === 'categoryGrid' && pageData.products.length) {
+    const p = pageData.products[0];
+    return p.croppedImageUrl || p.imageUrl;
+  }
   return null;
 }
 

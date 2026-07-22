@@ -391,7 +391,7 @@ html, body {
 .product-grid-4 .product-tile .btn-add-cart { margin-top: 0.18rem; padding: 0.2rem; font-size: 0.74rem; }
 
 /* Promo stamp (강력추천 / 베스트) */
-.image-frame { position: relative; }
+.image-frame { position: relative; overflow: hidden; }
 .promo-stamp {
   position: absolute;
   left: 6px;
