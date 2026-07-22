@@ -133,6 +133,38 @@ th { color: #475569; font-weight: 600; }
   font-size: 0.9rem;
 }
 
+.muted { color: #64748b; font-size: 0.85rem; margin-top: -0.5rem; }
+
+.pl-category {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.pl-category-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.pl-category-header h3 { margin: 0; font-size: 1rem; }
+.pl-category-header span { font-size: 0.8rem; color: #64748b; }
+.pl-page-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.pl-page-row:first-of-type { border-top: none; }
+.pl-page-label { font-weight: 600; font-size: 0.85rem; min-width: 4.5rem; }
+.pl-page-row select { width: 5rem; }
+.pl-page-preview { flex: 1 1 260px; font-size: 0.8rem; color: #475569; }
+.pl-page-actions { display: flex; gap: 0.3rem; }
+.pl-page-actions button { padding: 0.3rem 0.5rem; font-size: 0.8rem; }
+.pl-add-page { margin-top: 0.5rem; }
+
 .modal-backdrop {
   display: none;
   position: fixed;

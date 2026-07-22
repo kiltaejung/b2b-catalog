@@ -11,6 +11,165 @@ const clientLogoPreview = document.getElementById('clientLogoPreview');
 
 let existingCompanyLogoUrl = null;
 let existingClientLogoUrl = null;
+let allProducts = [];
+let pageLayoutState = {};
+const pageLayoutContainer = document.getElementById('pageLayoutContainer');
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+async function fetchAllProducts() {
+  const res = await fetch('/api/products');
+  const data = await res.json();
+  allProducts = data.products || [];
+}
+
+// Mirrors server/services/catalogService.js resolveCategoryOrder(), but
+// only over categories that currently have products, for display purposes.
+function computeCategoryOrder(products, categoryOrderText) {
+  const present = new Set(products.map((p) => p.category));
+  const requested = categoryOrderText
+    ? categoryOrderText.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+  if (requested.length) return requested.filter((c) => present.has(c));
+
+  const seen = new Set();
+  const order = [];
+  products
+    .slice()
+    .sort((a, b) => a.display_order - b.display_order)
+    .forEach((p) => {
+      if (!seen.has(p.category)) {
+        seen.add(p.category);
+        order.push(p.category);
+      }
+    });
+  return order;
+}
+
+// Mirrors public/catalog/js/flipbook.js chunkByLayout(): products are
+// consumed greedily in display-order using the configured per-page sizes
+// (4 or 6 only); any configured sizes beyond what's needed go unused.
+// Unlike flipbook.js's chunkByLayout(), the admin preview renders exactly
+// one row per entry in `sizes` — including a trailing page with no
+// products left to fill it — so clicking "페이지 추가" always shows a new,
+// editable row immediately instead of silently doing nothing until the
+// admin also frees up capacity on an earlier page.
+function chunkByLayoutPreview(products, sizes) {
+  const chunks = [];
+  let i = 0;
+  const pageCount = Array.isArray(sizes) && sizes.length ? sizes.length : Math.max(1, Math.ceil(products.length / 6));
+  for (let pageIdx = 0; pageIdx < pageCount; pageIdx += 1) {
+    const configured = Array.isArray(sizes) ? sizes[pageIdx] : undefined;
+    const capacity = configured === 4 || configured === 6 ? configured : 6;
+    chunks.push({ capacity, products: products.slice(i, i + capacity) });
+    i += capacity;
+  }
+  return chunks;
+}
+
+function renderPageLayoutEditor() {
+  const categoryOrderText = document.getElementById('categoryOrder').value;
+  const categories = computeCategoryOrder(allProducts, categoryOrderText);
+
+  if (!categories.length) {
+    pageLayoutContainer.innerHTML = '<p class="muted">등록된 상품이 없습니다. 먼저 상품을 등록해주세요.</p>';
+    return;
+  }
+
+  pageLayoutContainer.innerHTML = categories.map((category) => {
+    const catProducts = allProducts
+      .filter((p) => p.category === category)
+      .sort((a, b) => a.display_order - b.display_order);
+    if (!pageLayoutState[category] || !pageLayoutState[category].length) {
+      pageLayoutState[category] = Array(Math.max(1, Math.ceil(catProducts.length / 6))).fill(6);
+    }
+    const sizes = pageLayoutState[category];
+    const chunks = chunkByLayoutPreview(catProducts, sizes);
+
+    return `
+      <div class="pl-category" data-category="${escapeHtml(category)}">
+        <div class="pl-category-header">
+          <h3>${escapeHtml(category)}</h3>
+          <span>총 ${catProducts.length}개 상품 · ${chunks.length}페이지</span>
+        </div>
+        ${chunks.map((chunk, idx) => `
+          <div class="pl-page-row" data-page-index="${idx}">
+            <span class="pl-page-label">페이지 ${idx + 1}</span>
+            <select data-pl-count>
+              <option value="4" ${chunk.capacity === 4 ? 'selected' : ''}>4개</option>
+              <option value="6" ${chunk.capacity === 6 ? 'selected' : ''}>6개</option>
+            </select>
+            <span class="pl-page-preview">${chunk.products.map((p) => escapeHtml(p.name)).join(', ') || '(배치될 상품 없음)'}</span>
+            <div class="pl-page-actions">
+              <button type="button" class="secondary" data-pl-move="up" ${idx === 0 ? 'disabled' : ''}>▲</button>
+              <button type="button" class="secondary" data-pl-move="down" ${idx === chunks.length - 1 ? 'disabled' : ''}>▼</button>
+              <button type="button" class="danger" data-pl-remove>삭제</button>
+            </div>
+          </div>
+        `).join('')}
+        <button type="button" class="secondary pl-add-page" data-pl-add>+ 페이지 추가</button>
+      </div>
+    `;
+  }).join('');
+}
+
+pageLayoutContainer.addEventListener('click', (e) => {
+  const catEl = e.target.closest('.pl-category');
+  if (!catEl) return;
+  const category = catEl.dataset.category;
+  const sizes = pageLayoutState[category];
+
+  if (e.target.matches('[data-pl-add]')) {
+    sizes.push(6);
+    renderPageLayoutEditor();
+    return;
+  }
+
+  const rowEl = e.target.closest('.pl-page-row');
+  if (!rowEl) return;
+  const idx = Number(rowEl.dataset.pageIndex);
+
+  if (e.target.matches('[data-pl-remove]')) {
+    if (!confirm('해당 페이지를 삭제하시겠습니까? 배치된 상품은 다음 페이지에 자동으로 재배치됩니다.')) return;
+    sizes.splice(idx, 1);
+    renderPageLayoutEditor();
+    return;
+  }
+  if (e.target.matches('[data-pl-move="up"]') && idx > 0) {
+    [sizes[idx - 1], sizes[idx]] = [sizes[idx], sizes[idx - 1]];
+    renderPageLayoutEditor();
+    return;
+  }
+  if (e.target.matches('[data-pl-move="down"]') && idx < sizes.length - 1) {
+    [sizes[idx + 1], sizes[idx]] = [sizes[idx], sizes[idx + 1]];
+    renderPageLayoutEditor();
+  }
+});
+
+pageLayoutContainer.addEventListener('change', (e) => {
+  if (!e.target.matches('[data-pl-count]')) return;
+  const catEl = e.target.closest('.pl-category');
+  const rowEl = e.target.closest('.pl-page-row');
+  const idx = Number(rowEl.dataset.pageIndex);
+  pageLayoutState[catEl.dataset.category][idx] = Number(e.target.value);
+  renderPageLayoutEditor();
+});
+
+document.getElementById('categoryOrder').addEventListener('input', renderPageLayoutEditor);
+
+function buildPageLayoutPayload() {
+  const categoryOrderText = document.getElementById('categoryOrder').value;
+  const categories = computeCategoryOrder(allProducts, categoryOrderText);
+  const result = {};
+  categories.forEach((c) => {
+    if (pageLayoutState[c] && pageLayoutState[c].length) result[c] = pageLayoutState[c];
+  });
+  return result;
+}
 
 async function fetchCatalogs() {
   const res = await fetch('/api/catalogs');
@@ -62,6 +221,8 @@ function resetToCreateMode() {
   submitBtn.textContent = '카탈로그 생성 (전체 상품 포함)';
   cancelEditBtn.style.display = 'none';
   errorsBox.style.display = 'none';
+  pageLayoutState = {};
+  renderPageLayoutEditor();
 }
 
 async function enterEditMode(catalogId) {
@@ -81,6 +242,9 @@ async function enterEditMode(catalogId) {
   document.getElementById('showPrice').checked = Boolean(c.showPrice);
   document.getElementById('categoryOrder').value = (c.categories || []).map((cat) => cat.category).join(',');
   document.getElementById('maxZoom').value = c.maxZoom || 3;
+
+  pageLayoutState = JSON.parse(JSON.stringify(c.pageLayout || {}));
+  renderPageLayoutEditor();
 
   existingCompanyLogoUrl = c.companyLogoUrl || null;
   existingClientLogoUrl = c.clientLogoUrl || null;
@@ -164,6 +328,7 @@ catalogForm.addEventListener('submit', async (e) => {
     showPrice: document.getElementById('showPrice').checked,
     categoryOrder: categoryOrderRaw ? categoryOrderRaw.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
     maxZoom: Number(document.getElementById('maxZoom').value) || 3,
+    pageLayout: buildPageLayoutPayload(),
   };
 
   const catalogId = document.getElementById('catalogId').value;
@@ -187,4 +352,9 @@ catalogForm.addEventListener('submit', async (e) => {
   fetchCatalogs();
 });
 
-fetchCatalogs();
+async function init() {
+  await fetchAllProducts();
+  renderPageLayoutEditor();
+  await fetchCatalogs();
+}
+init();

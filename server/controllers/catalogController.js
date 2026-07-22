@@ -11,6 +11,21 @@ function normalizeMaxZoom(value) {
   return Math.min(MAX_ALLOWED_ZOOM, Math.max(MIN_ALLOWED_ZOOM, num));
 }
 
+// pageLayout: { [category]: number[] }, each entry a per-page product count.
+// Only 4 or 6 are ever allowed per page.
+function validatePageLayout(pageLayout) {
+  if (pageLayout === undefined || pageLayout === null) return {};
+  if (typeof pageLayout !== 'object' || Array.isArray(pageLayout)) {
+    throw new Error('상품 노출 수량은 4개 또는 6개만 설정할 수 있습니다.');
+  }
+  for (const sizes of Object.values(pageLayout)) {
+    if (!Array.isArray(sizes) || sizes.some((n) => n !== 4 && n !== 6)) {
+      throw new Error('상품 노출 수량은 4개 또는 6개만 설정할 수 있습니다.');
+    }
+  }
+  return pageLayout;
+}
+
 async function listCatalogs(req, res) {
   const { rows } = await pool.query(
     `SELECT id, main_title, season_name, client_name, show_price, created_at
@@ -52,10 +67,18 @@ async function createCatalog(req, res) {
     categoryOrder,
     productIds,
     maxZoom,
+    pageLayout,
   } = req.body;
 
   if (!mainTitle) {
     return res.status(400).json({ error: '메인 타이틀은 필수입니다.' });
+  }
+
+  let validatedPageLayout;
+  try {
+    validatedPageLayout = validatePageLayout(pageLayout);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
   }
 
   const result = await loadSnapshot(categoryOrder, productIds);
@@ -65,8 +88,8 @@ async function createCatalog(req, res) {
 
   const { rows } = await pool.query(
     `INSERT INTO catalogs
-      (season_name, main_title, company_logo_url, cover_image_url, back_cover_image_url, show_price, client_name, client_logo_url, category_order, product_snapshot, max_zoom)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      (season_name, main_title, company_logo_url, cover_image_url, back_cover_image_url, show_price, client_name, client_logo_url, category_order, product_snapshot, max_zoom, page_layout)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
      RETURNING *`,
     [
       seasonName || null,
@@ -80,6 +103,7 @@ async function createCatalog(req, res) {
       JSON.stringify(result.resolvedOrder),
       JSON.stringify(result.snapshot),
       normalizeMaxZoom(maxZoom),
+      JSON.stringify(validatedPageLayout),
     ]
   );
   res.status(201).json({ catalog: toViewModel(rows[0]) });
@@ -98,10 +122,18 @@ async function updateCatalog(req, res) {
     categoryOrder,
     productIds,
     maxZoom,
+    pageLayout,
   } = req.body;
 
   if (!mainTitle) {
     return res.status(400).json({ error: '메인 타이틀은 필수입니다.' });
+  }
+
+  let validatedPageLayout;
+  try {
+    validatedPageLayout = validatePageLayout(pageLayout);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
   }
 
   const result = await loadSnapshot(categoryOrder, productIds);
@@ -112,8 +144,8 @@ async function updateCatalog(req, res) {
   const { rows } = await pool.query(
     `UPDATE catalogs SET
       season_name=$1, main_title=$2, company_logo_url=$3, cover_image_url=$4, back_cover_image_url=$5, show_price=$6,
-      client_name=$7, client_logo_url=$8, category_order=$9, product_snapshot=$10, max_zoom=$11, updated_at=now()
-     WHERE id=$12 RETURNING *`,
+      client_name=$7, client_logo_url=$8, category_order=$9, product_snapshot=$10, max_zoom=$11, page_layout=$12, updated_at=now()
+     WHERE id=$13 RETURNING *`,
     [
       seasonName || null,
       mainTitle,
@@ -126,6 +158,7 @@ async function updateCatalog(req, res) {
       JSON.stringify(result.resolvedOrder),
       JSON.stringify(result.snapshot),
       normalizeMaxZoom(maxZoom),
+      JSON.stringify(validatedPageLayout),
       req.params.id,
     ]
   );

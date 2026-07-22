@@ -1,4 +1,3 @@
-const PRODUCTS_PER_GRID_PAGE = 6;
 const CART_STORAGE_KEY = 'b2bCatalogCart';
 
 const state = {
@@ -23,7 +22,6 @@ const catalogId = params.get('id');
 const bookViewport = document.getElementById('bookViewport');
 const bookFlipEl = document.getElementById('bookFlip');
 const bookStage = document.getElementById('bookStage');
-const pageSlider = document.getElementById('pageSlider');
 const pageCurrentText = document.getElementById('pageCurrentText');
 const totalPagesEl = document.getElementById('totalPages');
 const loadingScreen = document.getElementById('loadingScreen');
@@ -44,6 +42,26 @@ function chunkArray(arr, size) {
   return chunks.length ? chunks : [[]];
 }
 
+// Admin-configured per-category page sizes (4 or 6 products per page) are
+// consumed greedily front-to-back in display-order: page N gets the next
+// configuredSizes[N] products (or 6 if that page has no configured size,
+// e.g. because products were added after the layout was last saved). Any
+// configured sizes left over once every product is placed are simply
+// unused — no empty trailing pages are ever created.
+function chunkByLayout(arr, configuredSizes) {
+  const chunks = [];
+  let i = 0;
+  let pageIdx = 0;
+  while (i < arr.length) {
+    const configured = Array.isArray(configuredSizes) ? configuredSizes[pageIdx] : undefined;
+    const capacity = configured === 4 || configured === 6 ? configured : 6;
+    chunks.push({ capacity, products: arr.slice(i, i + capacity) });
+    i += capacity;
+    pageIdx += 1;
+  }
+  return chunks.length ? chunks : [{ capacity: 6, products: [] }];
+}
+
 function formatPrice(value) {
   return `${Number(value).toLocaleString()}원`;
 }
@@ -58,14 +76,16 @@ function buildPages(catalog) {
 
   catalog.categories.forEach((catEntry) => {
     categoryStartPage[catEntry.category] = pages.length;
-    const chunks = chunkArray(catEntry.products, PRODUCTS_PER_GRID_PAGE);
+    const configuredSizes = catalog.pageLayout && catalog.pageLayout[catEntry.category];
+    const chunks = chunkByLayout(catEntry.products, configuredSizes);
     chunks.forEach((chunk, chunkIdx) => {
       pages.push({
         type: 'categoryGrid',
         category: catEntry.category,
         partIndex: chunkIdx,
         partTotal: chunks.length,
-        products: chunk,
+        capacity: chunk.capacity,
+        products: chunk.products,
       });
     });
   });
@@ -153,13 +173,14 @@ function pageHtml(pageData) {
           </ul>
         </div>`;
 
-    case 'categoryGrid':
+    case 'categoryGrid': {
+      const capacity = pageData.capacity === 4 ? 4 : 6;
       return `
         <div class="page">
           <div class="category-banner">
             <h2>${escapeHtml(pageData.category)}${pageData.partTotal > 1 ? ` (${pageData.partIndex + 1}/${pageData.partTotal})` : ''}</h2>
           </div>
-          <div class="product-grid">
+          <div class="product-grid product-grid-${capacity}">
             ${pageData.products.map((p) => `
               <div class="product-tile">
                 <div class="image-frame">
@@ -173,10 +194,12 @@ function pageHtml(pageData) {
                     ${p.originalPrice ? `<span class="original">${formatPrice(p.originalPrice)}</span>` : ''}
                     ${formatPrice(p.salePrice)}
                   </div>` : ''}
+                <div class="tile-meta">${escapeHtml([p.composition, p.features].filter(Boolean).join(' · '))}</div>
                 <button class="btn-add-cart" data-add-cart="${p.id}">견적 담기</button>
               </div>`).join('')}
           </div>
         </div>`;
+    }
 
     case 'back':
       if (catalog.backCoverImageUrl) {
@@ -232,9 +255,6 @@ function updateNavUI(oneBasedPage) {
   const total = state.pages.length;
   pageCurrentText.textContent = oneBasedPage;
   totalPagesEl.textContent = total;
-  pageSlider.min = 1;
-  pageSlider.max = total;
-  pageSlider.value = oneBasedPage;
   resetPan();
   if (state.settings.autoFit) setZoom(1, false);
   updateSoloCentering();
@@ -335,8 +355,6 @@ document.getElementById('btnPrev').addEventListener('click', prev);
 document.getElementById('btnFirst').addEventListener('click', first);
 document.getElementById('btnLast').addEventListener('click', last);
 
-pageSlider.addEventListener('input', () => goToPage(Number(pageSlider.value)));
-
 // ---------------------------------------------------------------------
 // Shared bottom-sheet / float-bar system
 // ---------------------------------------------------------------------
@@ -375,9 +393,7 @@ function toggleFloatBar(bar) {
   if (willOpen) bar.classList.add('open');
 }
 
-const pageNavBar = document.getElementById('pageNavBar');
 const zoomBar = document.getElementById('zoomBar');
-document.getElementById('btnPageNavToggle').addEventListener('click', () => toggleFloatBar(pageNavBar));
 document.getElementById('btnZoomToggle').addEventListener('click', () => toggleFloatBar(zoomBar));
 
 document.getElementById('btnShare').addEventListener('click', () => openSheet(document.getElementById('shareSheet')));
@@ -1095,7 +1111,15 @@ function sizeBookFlip() {
   const bottomH = 56;
   const margin = isSingle ? 16 : 24;
   const maxH = Math.min(window.innerHeight - toolbarH - bottomH - margin, 860);
-  const maxW = isSingle ? Math.min(window.innerWidth * 0.94, 660) : 1320;
+  // In spread mode the 1320 cap alone ignored how narrow the actual window
+  // was just above SPREAD_BREAKPOINT (e.g. 900px wide): the requested width
+  // came out wider than the viewport, got visually clamped by the parent,
+  // but the page height had already been derived from the wider, unclamped
+  // width — leaving a page box shorter than it should be for its own
+  // rendered width, and reintroducing the very page-internal scroll this
+  // sizing function exists to prevent. Capping maxW by the real window
+  // width too keeps the requested and rendered widths in agreement.
+  const maxW = isSingle ? Math.min(window.innerWidth * 0.94, 660) : Math.min(window.innerWidth * 0.96, 1320);
   const ratio = isSingle ? PAGE_RATIO : PAGE_RATIO * 2;
 
   const w = Math.min(maxW, maxH * ratio);

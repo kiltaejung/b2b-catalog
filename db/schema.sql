@@ -53,6 +53,10 @@ ALTER TABLE catalogs ADD COLUMN IF NOT EXISTS max_zoom NUMERIC(3, 1) NOT NULL DE
 -- Idempotent migration for catalogs created before back_cover_image_url existed.
 ALTER TABLE catalogs ADD COLUMN IF NOT EXISTS back_cover_image_url TEXT;
 
+-- Per-category page layout: { [category]: number[] } — each entry is the
+-- configured product count (4 or 6) for that category's Nth grid page.
+ALTER TABLE catalogs ADD COLUMN IF NOT EXISTS page_layout JSONB NOT NULL DEFAULT '{}';
+
 CREATE TABLE IF NOT EXISTS quotes (
   id SERIAL PRIMARY KEY,
   catalog_id INTEGER REFERENCES catalogs(id) ON DELETE SET NULL,

@@ -54,6 +54,7 @@ function toViewModel(catalogRow) {
     clientName: catalogRow.client_name,
     clientLogoUrl: catalogRow.client_logo_url,
     categories: catalogRow.product_snapshot,
+    pageLayout: catalogRow.page_layout || {},
     maxZoom: Number(catalogRow.max_zoom),
     createdAt: catalogRow.created_at,
   };

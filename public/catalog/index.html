@@ -26,16 +26,7 @@
     </div>
   </main>
 
-  <!-- Slim on-demand overlay bars (page nav slider / zoom controls) -->
-  <div id="pageNavBar" class="float-bar">
-    <button id="btnFirst" class="nav-btn" type="button" title="처음 페이지">⏮</button>
-    <button id="btnPrev" class="nav-btn" type="button" title="이전 페이지">◀</button>
-    <input type="range" id="pageSlider" class="page-slider" min="1" max="1" value="1" />
-    <div class="page-indicator"><span id="pageCurrentText">1</span> / <span id="totalPages">1</span></div>
-    <button id="btnNext" class="nav-btn" type="button" title="다음 페이지">▶</button>
-    <button id="btnLast" class="nav-btn" type="button" title="마지막 페이지">⏭</button>
-  </div>
-
+  <!-- Slim on-demand overlay bar (zoom controls) -->
   <div id="zoomBar" class="float-bar">
     <button id="btnZoomOut" class="icon-btn" type="button" title="축소">－</button>
     <span id="zoomLevelText" class="zoom-level">100%</span>
@@ -43,25 +34,35 @@
     <button id="btnZoomReset" class="icon-btn" type="button" title="원래 크기">원래대로</button>
   </div>
 
-  <!-- Fixed bottom icon bar -->
-  <nav class="bottom-bar">
-    <button id="btnThumbnail" class="bottom-bar-btn" type="button" aria-label="썸네일" title="썸네일">
-      <span class="bb-icon">▦</span>
+  <!-- Small grouped bottom clusters: left (view tools) / center (page nav,
+       always visible) / right (navigation + more), mirroring a compact
+       reader-style bottom chrome instead of one full-width icon bar. -->
+  <nav class="bottom-cluster bottom-cluster-left">
+    <button id="btnZoomToggle" class="cluster-btn" type="button" aria-label="확대" title="확대">
+      <span class="cl-icon">🔍</span>
     </button>
-    <button id="btnToc" class="bottom-bar-btn" type="button" aria-label="목차" title="목차">
-      <span class="bb-icon">☰</span>
+    <button id="btnThumbnail" class="cluster-btn" type="button" aria-label="썸네일" title="썸네일">
+      <span class="cl-icon">▦</span>
     </button>
-    <button id="btnPageNavToggle" class="bottom-bar-btn" type="button" aria-label="페이지 이동" title="페이지 이동">
-      <span class="bb-icon">⇔</span>
+  </nav>
+
+  <nav id="pageNavBar" class="bottom-cluster bottom-cluster-center">
+    <button id="btnFirst" class="cluster-btn" type="button" title="처음 페이지">⏮</button>
+    <button id="btnPrev" class="cluster-btn" type="button" title="이전 페이지">◀</button>
+    <div class="page-indicator"><span id="pageCurrentText">1</span> / <span id="totalPages">1</span></div>
+    <button id="btnNext" class="cluster-btn" type="button" title="다음 페이지">▶</button>
+    <button id="btnLast" class="cluster-btn" type="button" title="마지막 페이지">⏭</button>
+  </nav>
+
+  <nav class="bottom-cluster bottom-cluster-right">
+    <button id="btnToc" class="cluster-btn" type="button" aria-label="목차" title="목차">
+      <span class="cl-icon">☰</span>
     </button>
-    <button id="btnZoomToggle" class="bottom-bar-btn" type="button" aria-label="확대" title="확대">
-      <span class="bb-icon">🔍</span>
+    <button id="btnProductSearchToggle" class="cluster-btn" type="button" aria-label="상품검색" title="상품검색">
+      <span class="cl-icon">🔎</span>
     </button>
-    <button id="btnProductSearchToggle" class="bottom-bar-btn" type="button" aria-label="상품검색" title="상품검색">
-      <span class="bb-icon">🔎</span>
-    </button>
-    <button id="btnMore" class="bottom-bar-btn" type="button" aria-label="더보기" title="더보기">
-      <span class="bb-icon">⋯</span>
+    <button id="btnMore" class="cluster-btn" type="button" aria-label="더보기" title="더보기">
+      <span class="cl-icon">⋯</span>
     </button>
   </nav>
 
@@ -86,9 +87,9 @@
     <ul class="help-list">
       <li>좌우 화면 터치: 이전 / 다음 페이지로 이동합니다.</li>
       <li>스와이프: 화면을 좌우로 밀어서 페이지를 넘길 수 있습니다.</li>
-      <li>확대: 하단 확대 아이콘, 더블탭, 또는 모바일에서 두 손가락 핀치로 확대합니다.</li>
-      <li>썸네일 보기: 하단 첫 번째 아이콘으로 전체 페이지를 한눈에 봅니다.</li>
-      <li>목차 보기: 하단 두 번째 아이콘으로 카테고리별 페이지로 바로 이동합니다.</li>
+      <li>확대: 하단 왼쪽의 확대 아이콘, 더블탭, 또는 모바일에서 두 손가락 핀치로 확대합니다.</li>
+      <li>썸네일 보기: 하단 왼쪽의 썸네일 아이콘으로 전체 페이지를 한눈에 봅니다.</li>
+      <li>목차 보기: 하단 오른쪽의 목차 아이콘으로 카테고리별 페이지로 바로 이동합니다.</li>
     </ul>
     <button class="sheet-close-btn" type="button" data-close-sheet>닫기</button>
   </div>
