@@ -102,10 +102,22 @@ function pageHtml(pageData) {
 
   switch (pageData.type) {
     case 'cover':
+      // A supplied cover image is treated as the finished, fully-designed
+      // cover (title/greeting/CTA already baked into the artwork), so it
+      // renders as-is with no text overlay or darkening scrim. Without one,
+      // fall back to rendering the title/season/client info as HTML on the
+      // plain gradient background.
+      if (catalog.coverImageUrl) {
+        return `
+          <div class="page single">
+            <div class="page-cover">
+              <div class="cover-image" style="background-image:url('${catalog.coverImageUrl}')"></div>
+            </div>
+          </div>`;
+      }
       return `
         <div class="page single">
           <div class="page-cover">
-            ${catalog.coverImageUrl ? `<div class="cover-image" style="background-image:url('${catalog.coverImageUrl}')"></div>` : ''}
             <div class="cover-overlay">
               <div>
                 <div class="brand-row">
