@@ -9,13 +9,12 @@
 </head>
 <body>
   <header class="toolbar">
-    <div class="toolbar-left">
-      <button id="btnCart" class="icon-btn" type="button" title="견적 담기함">🛒 <span id="cartCount">0</span></button>
-    </div>
+    <div class="toolbar-left"></div>
     <div class="toolbar-center">
       <button id="btnPriceSearch" class="price-search-btn" type="button">예산으로 상품 찾기</button>
     </div>
     <div class="toolbar-right">
+      <button id="btnCart" class="icon-btn" type="button" title="견적 담기함">🛒 <span id="cartCount">0</span></button>
       <button id="btnShare" class="icon-btn" type="button" title="공유">🔗 <span class="icon-btn-label">공유</span></button>
     </div>
   </header>
@@ -69,16 +68,27 @@
   <!-- Shared backdrop for bottom sheets -->
   <div id="sheetOverlay" class="sheet-overlay"></div>
 
-  <div id="shareSheet" class="bottom-sheet">
-    <div class="sheet-handle"></div>
-    <h3>공유하기</h3>
-    <div class="sheet-grid">
-      <button class="sheet-action" type="button" data-share="kakao"><span class="sheet-action-icon">💬</span>카카오톡</button>
-      <button class="sheet-action" type="button" data-share="email"><span class="sheet-action-icon">✉️</span>이메일</button>
-      <button class="sheet-action" type="button" data-share="copy"><span class="sheet-action-icon">🔗</span>링크 복사</button>
-      <button class="sheet-action" type="button" data-share="qr"><span class="sheet-action-icon">▦</span>QR코드</button>
+  <div id="shareSheet" class="modal-popup share-popup">
+    <div class="modal-popup-header">
+      <h3>공유하기</h3>
+      <button class="icon-btn sheet-close-icon" type="button" data-close-sheet>✕</button>
     </div>
-    <div id="qrContainer" class="qr-container" style="display:none"></div>
+    <div class="share-popup-body">
+      <div class="share-qr-col">
+        <div id="qrContainer" class="qr-container"></div>
+      </div>
+      <div class="share-actions-col">
+        <div class="share-actions-label">공유하기</div>
+        <div class="share-actions-grid">
+          <button class="share-action-btn" type="button" data-share="kakao"><span class="share-action-icon">💬</span>카카오톡</button>
+          <button class="share-action-btn" type="button" data-share="email"><span class="share-action-icon">✉️</span>이메일</button>
+        </div>
+      </div>
+    </div>
+    <div class="share-url-row">
+      <input type="text" id="shareUrlInput" readonly />
+      <button type="button" data-share="copy">복사</button>
+    </div>
   </div>
 
   <div id="helpSheet" class="bottom-sheet">
@@ -156,6 +166,15 @@
       <button class="icon-btn sheet-close-icon" type="button" data-close-sheet>✕</button>
     </div>
     <div id="thumbnailGrid" class="thumbnail-grid"></div>
+  </div>
+
+  <!-- PC-only horizontal filmstrip popup (mobile/tablet use #thumbnailSheet above) -->
+  <div id="thumbnailFilmstripPopup" class="modal-popup thumbnail-filmstrip-popup">
+    <div class="modal-popup-header">
+      <h3>썸네일</h3>
+      <button class="icon-btn sheet-close-icon" type="button" data-close-sheet>✕</button>
+    </div>
+    <div id="thumbnailFilmstripRow" class="thumbnail-filmstrip-row"></div>
   </div>
 
   <div id="tocSheet" class="bottom-sheet bottom-sheet-tall">

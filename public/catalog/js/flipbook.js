@@ -460,7 +460,7 @@ document.getElementById('btnLast').addEventListener('click', last);
 // Shared bottom-sheet / float-bar system
 // ---------------------------------------------------------------------
 const sheetOverlay = document.getElementById('sheetOverlay');
-const allSheets = Array.from(document.querySelectorAll('.bottom-sheet'));
+const allSheets = Array.from(document.querySelectorAll('.bottom-sheet, .modal-popup'));
 const allFloatBars = Array.from(document.querySelectorAll('.float-bar'));
 let activeSheet = null;
 
@@ -497,11 +497,20 @@ function toggleFloatBar(bar) {
 const zoomBar = document.getElementById('zoomBar');
 document.getElementById('btnZoomToggle').addEventListener('click', () => toggleFloatBar(zoomBar));
 
-document.getElementById('btnShare').addEventListener('click', () => openSheet(document.getElementById('shareSheet')));
+document.getElementById('btnShare').addEventListener('click', () => {
+  openSheet(document.getElementById('shareSheet'));
+  document.getElementById('shareUrlInput').value = window.location.href;
+  shareViaQr();
+});
 document.getElementById('btnMore').addEventListener('click', () => openSheet(document.getElementById('moreSheet')));
 document.getElementById('btnThumbnail').addEventListener('click', () => {
-  openSheet(document.getElementById('thumbnailSheet'));
-  renderThumbnails();
+  if (getLayoutMode() === 'spread') {
+    openSheet(document.getElementById('thumbnailFilmstripPopup'));
+    renderThumbnailFilmstrip();
+  } else {
+    openSheet(document.getElementById('thumbnailSheet'));
+    renderThumbnails();
+  }
 });
 document.getElementById('btnToc').addEventListener('click', () => {
   openSheet(document.getElementById('tocSheet'));
@@ -1003,7 +1012,6 @@ function loadQrLibrary() {
 
 async function shareViaQr() {
   const container = document.getElementById('qrContainer');
-  container.style.display = 'flex';
   container.innerHTML = '생성 중...';
   try {
     await loadQrLibrary();
@@ -1025,7 +1033,6 @@ document.querySelectorAll('#shareSheet [data-share]').forEach((btn) => {
     if (type === 'kakao') shareViaKakao();
     else if (type === 'email') shareViaEmail();
     else if (type === 'copy') shareViaCopyLink(btn);
-    else if (type === 'qr') shareViaQr();
   });
 });
 
@@ -1133,8 +1140,7 @@ function pageThumbImage(pageData) {
   return null;
 }
 
-function renderThumbnails(filter = '') {
-  const grid = document.getElementById('thumbnailGrid');
+function buildThumbCardsHtml(filter = '') {
   const current = state.currentPageIndex + 1;
   const q = filter.trim().toLowerCase();
 
@@ -1146,7 +1152,7 @@ function renderThumbnails(filter = '') {
       return label.toLowerCase().includes(q);
     });
 
-  grid.innerHTML = items.map(({ pageData, index, label }) => {
+  return items.map(({ pageData, index, label }) => {
     const img = pageThumbImage(pageData);
     return `
       <div class="thumb-card ${index + 1 === current ? 'current' : ''}" data-goto-thumb="${index + 1}">
@@ -1156,12 +1162,25 @@ function renderThumbnails(filter = '') {
   }).join('') || '<div class="no-results">검색 결과가 없습니다.</div>';
 }
 
-document.getElementById('thumbnailGrid').addEventListener('click', (e) => {
+function renderThumbnails(filter = '') {
+  document.getElementById('thumbnailGrid').innerHTML = buildThumbCardsHtml(filter);
+}
+
+// PC-only horizontal filmstrip popup (no search — mirrors the simpler
+// reference design). Mobile/tablet keep the full search+grid bottom-sheet.
+function renderThumbnailFilmstrip() {
+  document.getElementById('thumbnailFilmstripRow').innerHTML = buildThumbCardsHtml();
+}
+
+function handleThumbCardClick(e) {
   const el = e.target.closest('[data-goto-thumb]');
   if (!el) return;
   goToPage(Number(el.dataset.gotoThumb));
   closeSheet();
-});
+}
+
+document.getElementById('thumbnailGrid').addEventListener('click', handleThumbCardClick);
+document.getElementById('thumbnailFilmstripRow').addEventListener('click', handleThumbCardClick);
 
 document.getElementById('thumbnailSearch').addEventListener('input', (e) => renderThumbnails(e.target.value));
 
@@ -1270,6 +1289,7 @@ function sizeBookFlip() {
 }
 
 function syncLayout() {
+  if (getLayoutMode() === 'spread') showChrome();
   syncToolbarHeight();
   ensurePageFlipMode();
   sizeBookFlip();
@@ -1323,6 +1343,8 @@ function showChrome() {
 }
 
 function hideChromeIfIdle() {
+  // PC (spread layout): top/bottom chrome stays fixed and never auto-hides.
+  if (getLayoutMode() === 'spread') return;
   if (isChromeBusy()) {
     scheduleChromeIdle();
     return;
