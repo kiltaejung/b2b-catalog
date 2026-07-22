@@ -10,6 +10,7 @@ const state = {
   panY: 0,
   soloOffsetX: 0,
   budgetFilter: null,
+  chromeHidden: false,
   settings: {
     darkMode: true,
     autoFit: true,
@@ -185,9 +186,9 @@ function pageHtml(pageData) {
               <div class="product-tile">
                 <div class="image-frame">
                   <img src="${p.imageUrl}" onerror="this.src='/assets/no-image.svg'" alt="${escapeHtml(p.name)}" />
+                  ${p.brand ? `<div class="brand-badge">${escapeHtml(p.brand)}</div>` : ''}
                   ${promoStampHtml(p.promoBadge)}
                 </div>
-                ${p.brand ? `<div class="brand-badge">${escapeHtml(p.brand)}</div>` : ''}
                 <div class="tile-name">${escapeHtml(p.name)}</div>
                 ${catalog.showPrice ? `
                   <div class="price-badge">
@@ -1082,13 +1083,16 @@ document.getElementById('tocPanelList').addEventListener('click', (e) => {
 
 document.getElementById('tocSearch').addEventListener('input', (e) => renderTocPanel(e.target.value));
 
-// Keep the book viewport clear of the toolbar even as it grows to two rows
-// (budget filter row) or wraps on narrow screens.
+// Keep the book viewport clear of the toolbar/bottom clusters — both are
+// zeroed out instead while auto-hidden (see the chrome auto-hide block
+// near the end of this file), so the book can grow into that space.
 function syncToolbarHeight() {
   const toolbar = document.querySelector('.toolbar');
   if (toolbar) {
-    document.documentElement.style.setProperty('--toolbar-h', `${toolbar.offsetHeight}px`);
+    const h = state.chromeHidden ? 0 : toolbar.offsetHeight;
+    document.documentElement.style.setProperty('--toolbar-h', `${h}px`);
   }
+  document.documentElement.style.setProperty('--bottom-h', state.chromeHidden ? '0px' : '52px');
 }
 
 // Below this width, the book stays single-page (portrait); above it, a
@@ -1107,9 +1111,18 @@ const PAGE_RATIO = 660 / 860;
 // against, so this is done with real arithmetic instead.
 function sizeBookFlip() {
   const isSingle = window.innerWidth <= SPREAD_BREAKPOINT;
-  const toolbarH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--toolbar-h')) || 56;
-  const bottomH = 56;
-  const margin = isSingle ? 16 : 24;
+  // While the toolbar/bottom clusters are auto-hidden (still in the layout,
+  // just translated off-screen), the book claims that freed space too —
+  // it just doesn't need to steer clear of them anymore.
+  const toolbarH = state.chromeHidden
+    ? 0
+    : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--toolbar-h')) || 50;
+  const bottomH = state.chromeHidden ? 0 : 52;
+  // Minimal breathing room around the book — the top/bottom chrome is
+  // already trimmed to ~50px each, so the book itself should claim
+  // essentially all the space left (~85-90% of the viewport height),
+  // not be pushed in further by generous margins on top of that.
+  const margin = state.chromeHidden ? 4 : (isSingle ? 6 : 10);
   const maxH = Math.min(window.innerHeight - toolbarH - bottomH - margin, 860);
   // In spread mode the 1320 cap alone ignored how narrow the actual window
   // was just above SPREAD_BREAKPOINT (e.g. 900px wide): the requested width
@@ -1119,7 +1132,7 @@ function sizeBookFlip() {
   // rendered width, and reintroducing the very page-internal scroll this
   // sizing function exists to prevent. Capping maxW by the real window
   // width too keeps the requested and rendered widths in agreement.
-  const maxW = isSingle ? Math.min(window.innerWidth * 0.94, 660) : Math.min(window.innerWidth * 0.96, 1320);
+  const maxW = isSingle ? Math.min(window.innerWidth * 0.98, 660) : Math.min(window.innerWidth * 0.98, 1320);
   const ratio = isSingle ? PAGE_RATIO : PAGE_RATIO * 2;
 
   const w = Math.min(maxW, maxH * ratio);
@@ -1139,6 +1152,74 @@ function syncLayout() {
 }
 window.addEventListener('resize', syncLayout);
 syncLayout();
+
+// ---------------------------------------------------------------------
+// Auto-hide chrome: the toolbar and bottom clusters fade out after a few
+// seconds of no interaction so the book can grow into that space, and
+// reappear on the next tap/click. Hiding pauses (rather than cancels)
+// while a sheet, float-bar, or the cart drawer is open, since those all
+// count as "using a feature" and shouldn't disappear mid-use.
+// ---------------------------------------------------------------------
+const CHROME_IDLE_MS = 3000;
+const toolbarEl = document.querySelector('.toolbar');
+const chromeEls = [toolbarEl, ...document.querySelectorAll('.bottom-cluster')];
+let chromeIdleTimer = null;
+
+function isChromeBusy() {
+  return Boolean(
+    activeSheet
+    || allFloatBars.some((bar) => bar.classList.contains('open'))
+    || document.getElementById('cartDrawer').classList.contains('open')
+  );
+}
+
+function applyChromeVisibility() {
+  chromeEls.forEach((el) => el.classList.toggle('chrome-hidden', state.chromeHidden));
+  // #bookViewport's inset is driven by --toolbar-h/--bottom-h (zeroed out
+  // by syncToolbarHeight() while hidden), so the viewport box — and the
+  // book sized to fit inside it — actually grows into the space the bars
+  // used to reserve, instead of just visually sliding the (still
+  // reserved) bars out of the way.
+  syncToolbarHeight();
+  // The book only actually grows into the freed space after the CSS
+  // transition finishes moving the bars out of the way; re-measuring mid
+  // transition would just recompute against a still-changing layout.
+  setTimeout(() => {
+    sizeBookFlip();
+    if (pageFlip) updateSoloCentering();
+  }, 320);
+}
+
+function showChrome() {
+  if (state.chromeHidden) {
+    state.chromeHidden = false;
+    applyChromeVisibility();
+  }
+}
+
+function hideChromeIfIdle() {
+  if (isChromeBusy()) {
+    scheduleChromeIdle();
+    return;
+  }
+  if (!state.chromeHidden) {
+    state.chromeHidden = true;
+    applyChromeVisibility();
+  }
+}
+
+function scheduleChromeIdle() {
+  clearTimeout(chromeIdleTimer);
+  chromeIdleTimer = setTimeout(hideChromeIfIdle, CHROME_IDLE_MS);
+}
+
+function registerChromeActivity() {
+  showChrome();
+  scheduleChromeIdle();
+}
+
+document.addEventListener('pointerdown', registerChromeActivity, { passive: true });
+registerChromeActivity();
 
 // Init
 async function init() {

@@ -50,17 +50,19 @@ html, body {
 .toolbar {
   position: fixed;
   top: 0; left: 0; right: 0;
-  height: 56px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1rem;
+  padding: 0 0.6rem;
   background: var(--chrome-bg);
   z-index: 30;
-  gap: 1rem;
+  gap: 0.6rem;
+  transition: transform 0.25s ease, opacity 0.25s ease;
 }
+.toolbar.chrome-hidden { transform: translateY(-100%); opacity: 0; pointer-events: none; }
 
-.toolbar-left, .toolbar-right { display: flex; gap: 0.4rem; align-items: center; }
+.toolbar-left, .toolbar-right { display: flex; gap: 0.35rem; align-items: center; }
 .toolbar-center { flex: 1; display: flex; justify-content: center; }
 
 .icon-btn {
@@ -68,9 +70,13 @@ html, body {
   color: var(--chrome-text);
   border: none;
   border-radius: 6px;
-  padding: 0.4rem 0.7rem;
+  padding: 0.3rem 0.55rem;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
 }
 .icon-btn:hover { background: var(--chrome-btn-bg-hover); }
 
@@ -79,15 +85,16 @@ html, body {
   color: #1e1305;
   border: none;
   border-radius: 999px;
-  padding: 0.5rem 1.1rem;
-  font-size: 0.85rem;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
   max-width: min(70vw, 320px);
+  min-height: 38px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.5);
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.35);
 }
 .price-search-btn:hover { background: #fbbf24; }
 .price-search-btn.active { background: var(--band); color: #fff; box-shadow: none; }
@@ -146,7 +153,7 @@ html, body {
 
 .book-viewport {
   position: absolute;
-  inset: var(--toolbar-h, 56px) 0 var(--bottom-h, 56px) 0;
+  inset: var(--toolbar-h, 50px) 0 var(--bottom-h, 52px) 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -155,11 +162,12 @@ html, body {
      mismatch could pop a scrollbar. hidden makes that guarantee absolute. */
   overflow: hidden;
   background: var(--viewport-bg);
+  transition: inset 0.3s ease;
 }
 
 .book-stage {
   perspective: 2400px;
-  transition: transform 0.25s ease;
+  transition: transform 0.25s ease, width 0.3s ease;
   touch-action: none;
 }
 .book-stage.panning { transition: none; }
@@ -323,17 +331,22 @@ html, body {
   padding: 0.35rem;
   background: #fff;
 }
-.product-tile img { width: 100%; height: 74px; object-fit: contain; border-radius: 6px; background: #f1f5f9; }
+.product-tile img { width: 100%; height: 104px; object-fit: contain; object-position: center; border-radius: 6px; background: #f1f5f9; }
+/* Overlaid on the image itself (like the promo stamp) rather than its own
+   line, so the brand tag no longer eats into the card's text budget —
+   the image is the priority element, not the badge. */
 .brand-badge {
-  display: inline-block;
+  position: absolute;
+  top: 6px;
+  left: 6px;
   background: var(--band);
   color: #fff;
-  font-size: 0.63rem;
-  padding: 0.1rem 0.35rem;
+  font-size: 0.6rem;
+  padding: 0.08rem 0.3rem;
   border-radius: 4px;
-  margin: 0.25rem 0 0.1rem;
+  line-height: 1.4;
 }
-.product-tile .tile-name { font-size: 0.75rem; font-weight: 600; line-height: 1.2; height: 1.8em; overflow: hidden; }
+.product-tile .tile-name { font-size: 0.75rem; font-weight: 600; line-height: 1.2; height: 1.8em; overflow: hidden; margin-top: 0.2rem; }
 .price-badge {
   display: inline-block;
   margin-top: 0.2rem;
@@ -365,8 +378,8 @@ html, body {
 /* 4-product page: fewer rows to fit (2 vs 3), so imagery/type can run
    noticeably larger while still guaranteeing no internal page scroll. */
 .product-grid-4 .product-tile { padding: 0.5rem; }
-.product-grid-4 .product-tile img { height: 130px; }
-.product-grid-4 .brand-badge { font-size: 0.72rem; padding: 0.14rem 0.45rem; margin: 0.35rem 0 0.2rem; }
+.product-grid-4 .product-tile img { height: 190px; }
+.product-grid-4 .brand-badge { font-size: 0.7rem; padding: 0.12rem 0.4rem; }
 .product-grid-4 .product-tile .tile-name { font-size: 0.88rem; height: 2.1em; }
 .product-grid-4 .price-badge { font-size: 0.88rem; padding: 0.15rem 0.55rem; margin-top: 0.3rem; }
 .product-grid-4 .price-badge .original { font-size: 0.74rem; }
@@ -418,22 +431,25 @@ html, body {
    only these compact pill groups sit within it. */
 .bottom-cluster {
   position: fixed;
-  bottom: 10px;
+  bottom: calc(6px + env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.15rem;
   background: var(--chrome-bg);
   border-radius: 999px;
-  padding: 0.3rem;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  padding: 0.2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
   z-index: 40;
+  transition: transform 0.25s ease, opacity 0.25s ease;
 }
-.bottom-cluster-left { left: 10px; }
-.bottom-cluster-right { right: 10px; }
-.bottom-cluster-center { left: 50%; transform: translateX(-50%); padding: 0.3rem 0.5rem; gap: 0.4rem; }
+.bottom-cluster.chrome-hidden { transform: translateY(140%); opacity: 0; pointer-events: none; }
+.bottom-cluster-center.chrome-hidden { transform: translateX(-50%) translateY(140%); }
+.bottom-cluster-left { left: 8px; }
+.bottom-cluster-right { right: 8px; }
+.bottom-cluster-center { left: 50%; transform: translateX(-50%); padding: 0.2rem 0.4rem; gap: 0.3rem; }
 .cluster-btn {
-  min-width: 34px;
-  min-height: 34px;
+  min-width: 40px;
+  min-height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -445,13 +461,13 @@ html, body {
   font-size: 0.85rem;
 }
 .cluster-btn:hover, .cluster-btn.active { background: var(--chrome-btn-bg); }
-.cl-icon { font-size: 1.05rem; line-height: 1; }
+.cl-icon { font-size: 1.2rem; line-height: 1; }
 
 /* Slim floating overlay bars (page nav slider / zoom controls) */
 .float-bar {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--bottom-h, 56px) + 10px);
+  bottom: calc(var(--bottom-h, 52px) + 8px);
   transform: translateX(-50%) translateY(12px);
   display: none;
   align-items: center;
@@ -689,7 +705,6 @@ html, body {
 .loading-screen.hidden { display: none; }
 
 @media (max-width: 860px) {
-  .toolbar { flex-wrap: wrap; padding: 0.5rem; gap: 0.5rem; }
   .cart-drawer { width: 100%; right: -100%; }
   .float-bar { padding: 0.4rem 0.6rem; gap: 0.4rem; }
   .sheet-grid { grid-template-columns: repeat(2, 1fr); }
@@ -697,24 +712,24 @@ html, body {
 
 @media (max-width: 480px) {
   .toolbar-right { gap: 0.3rem; }
-  .toolbar-right .icon-btn { padding: 0.4rem 0.5rem; }
+  .toolbar-right .icon-btn { padding: 0.3rem 0.4rem; }
   .toolbar-right .icon-btn-label { display: none; }
   .price-search-btn { max-width: 50vw; }
   /* The 3 bottom clusters can collide side-by-side on narrow phones —
      drop the first/last page jump buttons (prev/next + the indicator
      cover the same need) and tighten each cluster's own padding/gap. */
   #btnFirst, #btnLast { display: none; }
-  .bottom-cluster { gap: 0.1rem; padding: 0.25rem; }
-  .bottom-cluster-center { padding: 0.25rem 0.35rem; gap: 0.25rem; }
-  .cluster-btn { min-width: 30px; min-height: 30px; }
+  .bottom-cluster { gap: 0.05rem; padding: 0.2rem; }
+  .bottom-cluster-center { padding: 0.2rem 0.3rem; gap: 0.2rem; }
+  .cluster-btn { min-width: 36px; min-height: 36px; }
 }
 
 @media (max-width: 340px) {
-  .bottom-cluster-left, .bottom-cluster-right { gap: 0; padding: 0.2rem; }
-  .bottom-cluster-left .cluster-btn, .bottom-cluster-right .cluster-btn { min-width: 26px; min-height: 26px; }
-  .bottom-cluster-center { gap: 0.15rem; padding: 0.2rem 0.25rem; }
-  .bottom-cluster-center .cluster-btn { min-width: 26px; min-height: 26px; }
-  .page-indicator { font-size: 0.75rem; padding: 0; }
+  .bottom-cluster-left, .bottom-cluster-right { gap: 0; padding: 0.15rem; }
+  .bottom-cluster-left .cluster-btn, .bottom-cluster-right .cluster-btn { min-width: 32px; min-height: 32px; }
+  .bottom-cluster-center { gap: 0.1rem; padding: 0.15rem 0.2rem; }
+  .bottom-cluster-center .cluster-btn { min-width: 32px; min-height: 32px; }
+  .page-indicator { font-size: 0.72rem; padding: 0; }
 }
 
 /* Page height (portrait single-page mode) shrinks continuously with
@@ -738,12 +753,26 @@ html, body {
 
   .product-grid-4 .product-tile { padding: 0.3rem; }
   .product-grid-4 .product-tile img { height: 80px; }
-  .product-grid-4 .brand-badge { font-size: 0.62rem; padding: 0.1rem 0.35rem; margin: 0.2rem 0 0.1rem; }
+  .product-grid-4 .brand-badge { font-size: 0.62rem; padding: 0.1rem 0.35rem; }
   .product-grid-4 .product-tile .tile-name { font-size: 0.75rem; height: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .product-grid-4 .price-badge { font-size: 0.72rem; padding: 0.08rem 0.35rem; margin-top: 0.15rem; }
   .product-grid-4 .price-badge .original { font-size: 0.62rem; }
   .product-grid-4 .tile-meta { display: none; }
   .product-grid-4 .product-tile .btn-add-cart { margin-top: 0.2rem; padding: 0.2rem; font-size: 0.68rem; }
+}
+
+/* Very narrow phones (older/small devices, ~360px and below): even the
+   620px compact tier is still a hair too tall once the page box itself
+   gets this short. */
+@media (max-width: 370px) {
+  .product-grid-6 .product-tile img { height: 38px; }
+  .product-grid-6 .product-tile { padding: 0.22rem; }
+  .product-grid-6 .product-tile .btn-add-cart { margin-top: 0.12rem; padding: 0.12rem; font-size: 0.62rem; }
+  .product-grid-4 .product-tile img { height: 64px; }
+  .product-grid-4 .product-tile { padding: 0.22rem; }
+  .product-grid-4 .product-tile .tile-name { font-size: 0.7rem; }
+  .product-grid-4 .price-badge { font-size: 0.66rem; }
+  .product-grid-4 .product-tile .btn-add-cart { margin-top: 0.15rem; padding: 0.15rem; font-size: 0.62rem; }
 }
 
 /* The width just past SPREAD_BREAKPOINT (860) is a transitional dip: each
@@ -753,7 +782,7 @@ html, body {
    width right below it and the wide-spread width above it. Needs its own
    compact tuning rather than the 620px one (that's single-page-mode only —
    this range is already in 2-page spread mode). */
-@media (min-width: 861px) and (max-width: 1099px) {
+@media (min-width: 861px) and (max-width: 1140px) {
   .product-grid { gap: 0.35rem; }
   .product-grid-6 .product-tile { padding: 0.3rem; }
   .product-grid-6 .product-tile img { height: 52px; }
