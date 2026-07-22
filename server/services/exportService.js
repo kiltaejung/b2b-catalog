@@ -6,22 +6,37 @@ const { imageSize } = require('image-size');
 const IMAGE_FETCH_TIMEOUT_MS = 8000;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_BOX_PX = 100;
-const ROW_HEIGHT_POINTS = 80;
-const IMAGE_COL_WIDTH_PX = 112; // approx rendered pixels for a width:16 column
+const ROW_HEIGHT_POINTS = 80.1;
+const IMAGE_COL_WIDTH_PX = 130; // approx rendered pixels for a width:18.5 column
 
+// Fixed to match the company's standard product-list template exactly —
+// these are pinned display values, not derived from per-product data.
+const SUPPLIER_NAME = '(주)포스라';
+const SUPPLIER_CONTACT_LINE = '길태정 부장 / 010-4499-5194';
+const SUPPLIER_EMAIL = 'ktj@fosla.co.kr';
+const VAT_NOTE = '(부가세 및 배송비 포함)';
+const DEFAULT_TITLE = '상품목록';
+
+// Column order/titles fixed to the template — do not add/remove/reorder.
 const EXPORT_COLUMNS = [
-  { header: '대표이미지', key: 'image', width: 16 },
-  { header: '카테고리', key: 'category', width: 12 },
-  { header: '상품코드', key: 'productCode', width: 16 },
-  { header: '상품명', key: 'name', width: 26 },
-  { header: '판매가', key: 'salePrice', width: 12 },
-  { header: '상품구성', key: 'composition', width: 20 },
-  { header: '포장', key: 'packaging', width: 16 },
-  { header: '원산지', key: 'origin', width: 10 },
-  { header: '규격', key: 'features', width: 16 },
-  { header: '상품설명', key: 'description', width: 32 },
-  { header: '배송안내', key: 'shippingInfo', width: 20 },
+  { key: 'image', header: '대표이미지', width: 18.5 },
+  { key: 'category', header: '카테고리', width: 19.875 },
+  { key: 'productCode', header: '상품코드', width: 16 },
+  { key: 'name', header: '상품명', width: 31 },
+  { key: 'composition', header: '상품구성', width: 20 },
+  { key: 'packaging', header: '포장', width: 16 },
+  { key: 'salePrice', header: '판매가', width: 12 },
 ];
+
+const LAST_COL_LETTER = 'G';
+const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E6E6' } };
+const LABEL_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBDD7EE' } };
+const THIN_BORDER = {
+  left: { style: 'thin', color: { indexed: 64 } },
+  right: { style: 'thin', color: { indexed: 64 } },
+  top: { style: 'thin', color: { indexed: 64 } },
+  bottom: { style: 'thin', color: { indexed: 64 } },
+};
 
 function isPrivateIp(ip) {
   if (net.isIPv4(ip)) {
@@ -112,7 +127,7 @@ function buildExportFilenameAscii(isFiltered) {
   return `fosla_gift_${label}_${todayStamp()}.xlsx`;
 }
 
-async function buildProductExportWorkbook(products) {
+async function buildProductExportWorkbook(products, title) {
   const imageBuffers = await Promise.all(products.map((p) => fetchImageBuffer(p.image_url)));
 
   const workbook = new ExcelJS.Workbook();
@@ -120,15 +135,58 @@ async function buildProductExportWorkbook(products) {
   workbook.created = new Date();
 
   const sheet = workbook.addWorksheet('상품목록', {
-    views: [{ state: 'frozen', ySplit: 1 }],
+    views: [{ state: 'frozen', ySplit: 4, topLeftCell: 'A5' }],
   });
-  sheet.columns = EXPORT_COLUMNS;
+  sheet.columns = EXPORT_COLUMNS.map(({ key, width }) => ({ key, width }));
 
-  const headerRow = sheet.getRow(1);
-  headerRow.font = { bold: true };
-  headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-  sheet.autoFilter = { from: 'A1', to: `K1` };
+  // Row 1: title, merged across the full width.
+  sheet.mergeCells(`A1:${LAST_COL_LETTER}1`);
+  const titleRow = sheet.getRow(1);
+  titleRow.height = 29.25;
+  titleRow.getCell(1).value = title || DEFAULT_TITLE;
+  titleRow.eachCell({ includeEmpty: true }, (cell) => {
+    cell.font = { bold: true, size: 14, name: '맑은 고딕' };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+  });
+
+  // Row 2: fixed supplier / contact / email block.
+  sheet.mergeCells(`F2:${LAST_COL_LETTER}2`);
+  const supplierRow = sheet.getRow(2);
+  supplierRow.getCell(1).value = '상품공급사';
+  supplierRow.getCell(2).value = SUPPLIER_NAME;
+  supplierRow.getCell(3).value = '담당자';
+  supplierRow.getCell(4).value = SUPPLIER_CONTACT_LINE;
+  supplierRow.getCell(5).value = '이메일';
+  supplierRow.getCell(6).value = { text: SUPPLIER_EMAIL, hyperlink: `mailto:${SUPPLIER_EMAIL}` };
+  supplierRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    cell.font = { bold: true, size: 11, name: '맑은 고딕' };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    cell.border = THIN_BORDER;
+    if (colNumber === 1 || colNumber === 3 || colNumber === 5) cell.fill = LABEL_FILL;
+    if (colNumber === 6) cell.font = { bold: true, underline: true, size: 11, name: '맑은 고딕', color: { argb: 'FF0563C1' } };
+  });
+
+  // Row 3: VAT/shipping note, right-aligned in the last column.
+  const noteRow = sheet.getRow(3);
+  noteRow.height = 28.5;
+  noteRow.getCell(EXPORT_COLUMNS.length).value = VAT_NOTE;
+  noteRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    cell.font = { size: 11, name: '맑은 고딕' };
+    cell.alignment = { horizontal: colNumber === EXPORT_COLUMNS.length ? 'right' : 'center' };
+  });
+
+  // Row 4: column headers (fixed titles/order — matches the company template).
+  const headerRow = sheet.getRow(4);
+  EXPORT_COLUMNS.forEach((col, i) => {
+    headerRow.getCell(i + 1).value = col.header;
+  });
+  headerRow.eachCell({ includeEmpty: true }, (cell) => {
+    cell.font = { bold: true, size: 11, name: '맑은 고딕' };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.fill = HEADER_FILL;
+    cell.border = THIN_BORDER;
+  });
+  sheet.autoFilter = { from: 'A4', to: `${LAST_COL_LETTER}4` };
 
   products.forEach((p, index) => {
     const row = sheet.addRow({
@@ -136,20 +194,18 @@ async function buildProductExportWorkbook(products) {
       category: p.category,
       productCode: p.product_code,
       name: p.name,
-      salePrice: Number(p.sale_price),
       composition: p.composition,
       packaging: p.packaging || '',
-      origin: p.origin || '',
-      features: p.features || '',
-      description: p.description || '',
-      shippingInfo: p.shipping_info || '',
+      salePrice: Number(p.sale_price),
     });
     const rowNumber = row.number;
     row.height = ROW_HEIGHT_POINTS;
-    row.alignment = { vertical: 'middle', wrapText: true };
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      cell.font = { size: 11, name: '맑은 고딕' };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = THIN_BORDER;
+    });
     row.getCell('salePrice').numFmt = '#,##0';
-    row.getCell('salePrice').alignment = { vertical: 'middle', horizontal: 'right' };
-    row.getCell('image').alignment = { vertical: 'middle', horizontal: 'center' };
 
     const buffer = imageBuffers[index];
     let embedded = false;

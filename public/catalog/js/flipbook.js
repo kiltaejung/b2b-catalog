@@ -4,12 +4,12 @@ const CART_STORAGE_KEY = 'b2bCatalogCart';
 const state = {
   catalog: null,
   pages: [],
-  productPageIndex: {},
   tocEntries: [],
   currentPageIndex: 0,
   zoom: 1,
   panX: 0,
   panY: 0,
+  soloOffsetX: 0,
   budgetFilter: null,
   settings: {
     darkMode: true,
@@ -50,7 +50,6 @@ function formatPrice(value) {
 
 function buildPages(catalog) {
   const pages = [];
-  const productPageIndex = {};
   const categoryStartPage = {};
 
   pages.push({ type: 'cover' });
@@ -69,12 +68,15 @@ function buildPages(catalog) {
         products: chunk,
       });
     });
-    catEntry.products.forEach((p) => {
-      productPageIndex[p.id] = pages.length;
-      pages.push({ type: 'product', product: p, category: catEntry.category });
-    });
   });
 
+  // PageFlip only isolates the very first ("cover") page unconditionally;
+  // whether the very last page also lands alone on its own spread instead
+  // of pairing up depends purely on whether the total page count comes out
+  // even. Padding with one blank filler when needed guarantees the back
+  // cover always gets its own centered page, regardless of how many
+  // category/grid pages came before it.
+  if (pages.length % 2 === 0) pages.push({ type: 'blank' });
   pages.push({ type: 'back' });
 
   const tocEntries = catalog.categories.map((c) => ({
@@ -83,7 +85,44 @@ function buildPages(catalog) {
   }));
   pages[tocPageIndex].entries = tocEntries;
 
-  return { pages, productPageIndex, tocEntries };
+  return { pages, tocEntries };
+}
+
+// A cover image is treated as the finished, fully-designed cover/back-cover
+// (title/greeting/CTA already baked into the artwork), rendered as-is with
+// no text overlay. The optional download hotspot lets a real click land on
+// the baked-in "상품리스트 다운로드" button area at the bottom of the image.
+function coverImageHtml(imageUrl, { withDownloadHotspot = false } = {}) {
+  return `
+    <div class="cover-image-wrap">
+      <img src="${imageUrl}" alt="표지" />
+      ${withDownloadHotspot ? '<button type="button" class="cover-download-hotspot" data-cover-download aria-label="상품리스트 다운로드"></button>' : ''}
+    </div>`;
+}
+
+function productDetailHtml(p, catalog) {
+  return `
+    <div class="image-frame">
+      <img class="hero" src="${p.imageUrl}" onerror="this.src='/assets/no-image.svg'" alt="${escapeHtml(p.name)}" />
+      ${promoStampHtml(p.promoBadge)}
+    </div>
+    <h2>${escapeHtml(p.name)}</h2>
+    <div class="brand-line">${p.brand ? escapeHtml(p.brand) : ''} ${p.productCode ? `· ${escapeHtml(p.productCode)}` : ''}</div>
+    ${catalog.showPrice ? `
+      <div class="price-line">
+        ${p.originalPrice ? `<span class="original">${formatPrice(p.originalPrice)}</span>` : ''}
+        ${formatPrice(p.salePrice)}
+      </div>` : ''}
+    <table class="spec-table">
+      <tr><th>상품구성</th><td>${escapeHtml(p.composition || '-')}</td></tr>
+      ${p.packaging ? `<tr><th>포장</th><td>${escapeHtml(p.packaging)}</td></tr>` : ''}
+      ${p.origin ? `<tr><th>원산지</th><td>${escapeHtml(p.origin)}</td></tr>` : ''}
+      ${p.taxType ? `<tr><th>면세/과세</th><td>${escapeHtml(p.taxType)}</td></tr>` : ''}
+      ${p.features ? `<tr><th>규격</th><td>${escapeHtml(p.features)}</td></tr>` : ''}
+      ${p.shippingInfo ? `<tr><th>배송안내</th><td>${escapeHtml(p.shippingInfo)}</td></tr>` : ''}
+    </table>
+    ${p.description ? `<div class="desc-block">${escapeHtml(p.description)}</div>` : ''}
+    <button class="btn-add-cart" data-add-cart="${p.id}">견적 담기</button>`;
 }
 
 function pageHtml(pageData) {
@@ -100,9 +139,7 @@ function pageHtml(pageData) {
       if (catalog.coverImageUrl) {
         return `
           <div class="page" data-density="hard">
-            <div class="cover-image-wrap">
-              <img src="${catalog.coverImageUrl}" alt="표지" />
-            </div>
+            ${coverImageHtml(catalog.coverImageUrl, { withDownloadHotspot: true })}
           </div>`;
       }
       return `
@@ -149,7 +186,7 @@ function pageHtml(pageData) {
           </div>
           <div class="product-grid">
             ${pageData.products.map((p) => `
-              <div class="product-tile" data-goto="${state.productPageIndex[p.id] + 1}">
+              <div class="product-tile" data-product="${p.id}">
                 <div class="image-frame">
                   <img src="${p.imageUrl}" onerror="this.src='/assets/no-image.svg'" alt="${escapeHtml(p.name)}" />
                   ${promoStampHtml(p.promoBadge)}
@@ -165,35 +202,13 @@ function pageHtml(pageData) {
           </div>
         </div>`;
 
-    case 'product': {
-      const p = pageData.product;
-      return `
-        <div class="page product-detail">
-          <div class="image-frame">
-            <img class="hero" src="${p.imageUrl}" onerror="this.src='/assets/no-image.svg'" alt="${escapeHtml(p.name)}" />
-            ${promoStampHtml(p.promoBadge)}
-          </div>
-          <h2>${escapeHtml(p.name)}</h2>
-          <div class="brand-line">${p.brand ? escapeHtml(p.brand) : ''} ${p.productCode ? `· ${escapeHtml(p.productCode)}` : ''}</div>
-          ${catalog.showPrice ? `
-            <div class="price-line">
-              ${p.originalPrice ? `<span class="original">${formatPrice(p.originalPrice)}</span>` : ''}
-              ${formatPrice(p.salePrice)}
-            </div>` : ''}
-          <table class="spec-table">
-            <tr><th>상품구성</th><td>${escapeHtml(p.composition || '-')}</td></tr>
-            ${p.packaging ? `<tr><th>포장</th><td>${escapeHtml(p.packaging)}</td></tr>` : ''}
-            ${p.origin ? `<tr><th>원산지</th><td>${escapeHtml(p.origin)}</td></tr>` : ''}
-            ${p.taxType ? `<tr><th>면세/과세</th><td>${escapeHtml(p.taxType)}</td></tr>` : ''}
-            ${p.features ? `<tr><th>규격</th><td>${escapeHtml(p.features)}</td></tr>` : ''}
-            ${p.shippingInfo ? `<tr><th>배송안내</th><td>${escapeHtml(p.shippingInfo)}</td></tr>` : ''}
-          </table>
-          ${p.description ? `<div class="desc-block">${escapeHtml(p.description)}</div>` : ''}
-          <button class="btn-add-cart" data-add-cart="${p.id}">견적 담기</button>
-        </div>`;
-    }
-
     case 'back':
+      if (catalog.backCoverImageUrl) {
+        return `
+          <div class="page" data-density="hard">
+            ${coverImageHtml(catalog.backCoverImageUrl)}
+          </div>`;
+      }
       return `
         <div class="page back-page" data-density="hard">
           <h2>주문 안내</h2>
@@ -246,6 +261,7 @@ function updateNavUI(oneBasedPage) {
   pageSlider.value = oneBasedPage;
   resetPan();
   if (state.settings.autoFit) setZoom(1, false);
+  updateSoloCentering();
 }
 
 function initPageFlip() {
@@ -270,6 +286,9 @@ function initPageFlip() {
     showCover: true,
     usePortrait: true,
     mobileScrollSupport: true,
+    // The cursor-follow "corner lift" hint (default on) made the whole book
+    // visibly wobble any time the mouse moved over it, even with no click.
+    showPageCorners: false,
   });
   pageFlip.loadFromHTML(buildPageElements());
   pageFlip.on('flip', (e) => {
@@ -287,7 +306,7 @@ function initPageFlip() {
 // reaching PageFlip's listener, in the capture phase, before it can start
 // tracking a flip. The follow-up 'click' event is untouched and still
 // reaches our own data-goto/data-add-cart handling below.
-const INTERACTIVE_SELECTOR = 'button, a, input, [data-goto], [data-add-cart]';
+const INTERACTIVE_SELECTOR = 'button, a, input, [data-goto], [data-add-cart], [data-product], [data-cover-download]';
 function stopIfInteractive(e) {
   if (e.target.closest(INTERACTIVE_SELECTOR)) e.stopPropagation();
 }
@@ -322,6 +341,16 @@ bookFlipEl.addEventListener('click', (e) => {
   const gotoEl = e.target.closest('[data-goto]');
   if (gotoEl) {
     goToPage(Number(gotoEl.dataset.goto));
+    return;
+  }
+  const productEl = e.target.closest('[data-product]');
+  if (productEl) {
+    openProductModal(Number(productEl.dataset.product));
+    return;
+  }
+  const downloadEl = e.target.closest('[data-cover-download]');
+  if (downloadEl) {
+    triggerFullExport();
     return;
   }
   const addCartEl = e.target.closest('[data-add-cart]');
@@ -404,8 +433,38 @@ function resetPan() {
 }
 
 function applyStageTransform() {
-  bookStage.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+  const offsetX = state.soloOffsetX || 0;
+  bookStage.style.transform = `translate(${state.panX + offsetX}px, ${state.panY}px) scale(${state.zoom})`;
   zoomLevelText.textContent = `${Math.round(state.zoom * 100)}%`;
+}
+
+// A solo page (cover, or the back cover if it lands alone) still renders
+// inside a phantom full-spread-width stage with an empty other half, which
+// visually pushes it off to one side instead of screen-center. Re-center
+// it by measuring the actual gap once the DOM has settled.
+function updateSoloCentering() {
+  // A single rAF sometimes measures mid-flip, before PageFlip finishes
+  // re-pairing pages around the newly-solo one (most noticeable jumping
+  // straight to the last page) — a short delay lets it fully settle first.
+  setTimeout(() => {
+    // Measure with any previous solo-offset removed first — otherwise the
+    // page rect we read back already includes the *last* solo page's
+    // correction, and computing a new offset from that already-shifted
+    // position compounds into the wrong answer.
+    state.soloOffsetX = 0;
+    applyStageTransform();
+
+    const visiblePages = Array.from(bookFlipEl.querySelectorAll('.page'))
+      .filter((el) => getComputedStyle(el).display !== 'none');
+    if (visiblePages.length === 1) {
+      const pageRect = visiblePages[0].getBoundingClientRect();
+      const viewportRect = bookViewport.getBoundingClientRect();
+      const pageCenterX = pageRect.left + pageRect.width / 2;
+      const viewportCenterX = viewportRect.left + viewportRect.width / 2;
+      state.soloOffsetX = viewportCenterX - pageCenterX;
+      applyStageTransform();
+    }
+  }, 80);
 }
 
 function setZoom(z, animate = true) {
@@ -566,9 +625,21 @@ async function updateExportUI() {
   }
 }
 
-btnExportExcel.addEventListener('click', () => {
-  window.location.href = `/api/products/export?${exportQueryString}`;
-});
+function triggerExport(queryString) {
+  const params = new URLSearchParams(queryString);
+  const title = state.catalog && (state.catalog.seasonName || state.catalog.mainTitle);
+  if (title) params.set('title', title);
+  window.location.href = `/api/products/export?${params.toString()}`;
+}
+
+// The cover's baked-in "상품리스트 다운로드" button always means the full,
+// unfiltered list — regardless of whatever search/budget filter happens to
+// be active in the product-search sheet.
+function triggerFullExport() {
+  triggerExport('');
+}
+
+btnExportExcel.addEventListener('click', () => triggerExport(exportQueryString));
 
 document.getElementById('btnPriceSearch').addEventListener('click', () => openSheet(document.getElementById('priceSearchSheet')));
 
@@ -628,6 +699,34 @@ function findProductById(id) {
   }
   return null;
 }
+
+// ---------------------------------------------------------------------
+// Product detail modal — opened on tile click instead of flipping to a
+// dedicated page.
+// ---------------------------------------------------------------------
+const productModalOverlay = document.getElementById('productModalOverlay');
+const productModal = document.getElementById('productModal');
+const productModalContent = document.getElementById('productModalContent');
+
+function openProductModal(productId) {
+  const product = findProductById(productId);
+  if (!product) return;
+  productModalContent.innerHTML = productDetailHtml(product, state.catalog);
+  productModalOverlay.classList.add('open');
+  productModal.classList.add('open');
+}
+
+function closeProductModal() {
+  productModalOverlay.classList.remove('open');
+  productModal.classList.remove('open');
+}
+
+productModalOverlay.addEventListener('click', closeProductModal);
+document.getElementById('btnCloseProductModal').addEventListener('click', closeProductModal);
+productModalContent.addEventListener('click', (e) => {
+  const addCartEl = e.target.closest('[data-add-cart]');
+  if (addCartEl) addToCart(Number(addCartEl.dataset.addCart));
+});
 
 function addToCart(productId) {
   const product = findProductById(productId);
@@ -708,6 +807,25 @@ function closeCart() {
 document.getElementById('btnCart').addEventListener('click', openCart);
 document.getElementById('btnCloseCart').addEventListener('click', closeCart);
 document.getElementById('cartOverlay').addEventListener('click', closeCart);
+
+// Auto-hyphenate the contact phone number as the user types (e.g. 010 mobile
+// numbers as 3-4-4, Seoul's 02 area code as 2-3-4/2-4-4, other area codes as
+// 3-3-4/3-4-4).
+function formatPhoneNumber(value) {
+  const digits = value.replace(/[^0-9]/g, '').slice(0, 11);
+  if (digits.length < 4) return digits;
+  if (digits.startsWith('02')) {
+    if (digits.length <= 5) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    if (digits.length <= 9) return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
+    return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
+  }
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  if (digits.length <= 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
+}
+document.getElementById('quoteCustomerContact').addEventListener('input', (e) => {
+  e.target.value = formatPhoneNumber(e.target.value);
+});
 
 document.getElementById('btnGenerateQuote').addEventListener('click', async () => {
   const cart = loadCart();
@@ -924,11 +1042,21 @@ document.querySelectorAll('#moreSheet [data-more]').forEach((btn) => {
   });
 });
 
+// Product detail is a click-to-open modal in the interactive viewer, but a
+// printed/PDF copy has no "click" affordance, so print output still gets a
+// full detail page per product, inserted right after its category grid.
 function buildPrintContainer() {
   const container = document.getElementById('printContainer');
-  container.innerHTML = state.pages.map((pageData) => `
-    <div class="print-page">${pageHtml(pageData)}</div>
-  `).join('');
+  const parts = [];
+  state.pages.forEach((pageData) => {
+    parts.push(`<div class="print-page">${pageHtml(pageData)}</div>`);
+    if (pageData.type === 'categoryGrid') {
+      pageData.products.forEach((p) => {
+        parts.push(`<div class="print-page"><div class="page product-detail">${productDetailHtml(p, state.catalog)}</div></div>`);
+      });
+    }
+  });
+  container.innerHTML = parts.join('');
 }
 
 function triggerPrint() {
@@ -944,12 +1072,10 @@ function pageLabel(pageData) {
   if (pageData.type === 'toc') return '목차';
   if (pageData.type === 'back') return '주문안내';
   if (pageData.type === 'categoryGrid') return pageData.category;
-  if (pageData.type === 'product') return pageData.product.name;
   return '';
 }
 
 function pageThumbImage(pageData) {
-  if (pageData.type === 'product') return pageData.product.imageUrl;
   if (pageData.type === 'categoryGrid' && pageData.products.length) return pageData.products[0].imageUrl;
   return null;
 }
@@ -1052,6 +1178,7 @@ function sizeBookFlip() {
 function syncLayout() {
   syncToolbarHeight();
   sizeBookFlip();
+  if (pageFlip) updateSoloCentering();
 }
 window.addEventListener('resize', syncLayout);
 syncLayout();
@@ -1072,7 +1199,6 @@ async function init() {
     state.catalog = data.catalog;
     const built = buildPages(state.catalog);
     state.pages = built.pages;
-    state.productPageIndex = built.productPageIndex;
     state.tocEntries = built.tocEntries;
 
     initPageFlip();

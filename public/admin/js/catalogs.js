@@ -76,6 +76,7 @@ async function enterEditMode(catalogId) {
   document.getElementById('seasonName').value = c.seasonName || '';
   document.getElementById('mainTitle').value = c.mainTitle || '';
   document.getElementById('coverImageUrl').value = c.coverImageUrl || '';
+  document.getElementById('backCoverImageUrl').value = c.backCoverImageUrl || '';
   document.getElementById('clientName').value = c.clientName || '';
   document.getElementById('showPrice').checked = Boolean(c.showPrice);
   document.getElementById('categoryOrder').value = (c.categories || []).map((cat) => cat.category).join(',');
@@ -157,6 +158,7 @@ catalogForm.addEventListener('submit', async (e) => {
     mainTitle: document.getElementById('mainTitle').value,
     companyLogoUrl,
     coverImageUrl: document.getElementById('coverImageUrl').value || null,
+    backCoverImageUrl: document.getElementById('backCoverImageUrl').value || null,
     clientName: document.getElementById('clientName').value || null,
     clientLogoUrl,
     showPrice: document.getElementById('showPrice').checked,

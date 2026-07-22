@@ -45,6 +45,7 @@ async function createCatalog(req, res) {
     mainTitle,
     companyLogoUrl,
     coverImageUrl,
+    backCoverImageUrl,
     showPrice = true,
     clientName,
     clientLogoUrl,
@@ -64,14 +65,15 @@ async function createCatalog(req, res) {
 
   const { rows } = await pool.query(
     `INSERT INTO catalogs
-      (season_name, main_title, company_logo_url, cover_image_url, show_price, client_name, client_logo_url, category_order, product_snapshot, max_zoom)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      (season_name, main_title, company_logo_url, cover_image_url, back_cover_image_url, show_price, client_name, client_logo_url, category_order, product_snapshot, max_zoom)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING *`,
     [
       seasonName || null,
       mainTitle,
       companyLogoUrl || null,
       coverImageUrl || null,
+      backCoverImageUrl || null,
       Boolean(showPrice),
       clientName || null,
       clientLogoUrl || null,
@@ -89,6 +91,7 @@ async function updateCatalog(req, res) {
     mainTitle,
     companyLogoUrl,
     coverImageUrl,
+    backCoverImageUrl,
     showPrice = true,
     clientName,
     clientLogoUrl,
@@ -108,14 +111,15 @@ async function updateCatalog(req, res) {
 
   const { rows } = await pool.query(
     `UPDATE catalogs SET
-      season_name=$1, main_title=$2, company_logo_url=$3, cover_image_url=$4, show_price=$5,
-      client_name=$6, client_logo_url=$7, category_order=$8, product_snapshot=$9, max_zoom=$10, updated_at=now()
-     WHERE id=$11 RETURNING *`,
+      season_name=$1, main_title=$2, company_logo_url=$3, cover_image_url=$4, back_cover_image_url=$5, show_price=$6,
+      client_name=$7, client_logo_url=$8, category_order=$9, product_snapshot=$10, max_zoom=$11, updated_at=now()
+     WHERE id=$12 RETURNING *`,
     [
       seasonName || null,
       mainTitle,
       companyLogoUrl || null,
       coverImageUrl || null,
+      backCoverImageUrl || null,
       Boolean(showPrice),
       clientName || null,
       clientLogoUrl || null,

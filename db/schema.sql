@@ -50,6 +50,9 @@ CREATE TABLE IF NOT EXISTS catalogs (
 -- Idempotent migration for catalogs created before max_zoom existed.
 ALTER TABLE catalogs ADD COLUMN IF NOT EXISTS max_zoom NUMERIC(3, 1) NOT NULL DEFAULT 3;
 
+-- Idempotent migration for catalogs created before back_cover_image_url existed.
+ALTER TABLE catalogs ADD COLUMN IF NOT EXISTS back_cover_image_url TEXT;
+
 CREATE TABLE IF NOT EXISTS quotes (
   id SERIAL PRIMARY KEY,
   catalog_id INTEGER REFERENCES catalogs(id) ON DELETE SET NULL,

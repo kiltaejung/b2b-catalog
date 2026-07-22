@@ -101,7 +101,7 @@ async function downloadTemplate(req, res) {
 }
 
 async function exportProducts(req, res) {
-  const { search, category, minPrice, maxPrice } = req.query;
+  const { search, category, minPrice, maxPrice, title } = req.query;
   const isFiltered = Boolean(search || category || minPrice || maxPrice);
   const { where, params } = buildFilterClause({ search, category, minPrice, maxPrice });
 
@@ -110,7 +110,7 @@ async function exportProducts(req, res) {
     params
   );
 
-  const buffer = await buildProductExportWorkbook(rows);
+  const buffer = await buildProductExportWorkbook(rows, title);
   const filename = buildExportFilename(isFiltered);
   const asciiFilename = buildExportFilenameAscii(isFiltered);
   const encodedFilename = encodeURIComponent(filename);

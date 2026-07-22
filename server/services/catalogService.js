@@ -49,6 +49,7 @@ function toViewModel(catalogRow) {
     mainTitle: catalogRow.main_title,
     companyLogoUrl: catalogRow.company_logo_url,
     coverImageUrl: catalogRow.cover_image_url,
+    backCoverImageUrl: catalogRow.back_cover_image_url,
     showPrice: catalogRow.show_price,
     clientName: catalogRow.client_name,
     clientLogoUrl: catalogRow.client_logo_url,
