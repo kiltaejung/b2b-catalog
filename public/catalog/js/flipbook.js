@@ -100,31 +100,6 @@ function coverImageHtml(imageUrl, { withDownloadHotspot = false } = {}) {
     </div>`;
 }
 
-function productDetailHtml(p, catalog) {
-  return `
-    <div class="image-frame">
-      <img class="hero" src="${p.imageUrl}" onerror="this.src='/assets/no-image.svg'" alt="${escapeHtml(p.name)}" />
-      ${promoStampHtml(p.promoBadge)}
-    </div>
-    <h2>${escapeHtml(p.name)}</h2>
-    <div class="brand-line">${p.brand ? escapeHtml(p.brand) : ''} ${p.productCode ? `· ${escapeHtml(p.productCode)}` : ''}</div>
-    ${catalog.showPrice ? `
-      <div class="price-line">
-        ${p.originalPrice ? `<span class="original">${formatPrice(p.originalPrice)}</span>` : ''}
-        ${formatPrice(p.salePrice)}
-      </div>` : ''}
-    <table class="spec-table">
-      <tr><th>상품구성</th><td>${escapeHtml(p.composition || '-')}</td></tr>
-      ${p.packaging ? `<tr><th>포장</th><td>${escapeHtml(p.packaging)}</td></tr>` : ''}
-      ${p.origin ? `<tr><th>원산지</th><td>${escapeHtml(p.origin)}</td></tr>` : ''}
-      ${p.taxType ? `<tr><th>면세/과세</th><td>${escapeHtml(p.taxType)}</td></tr>` : ''}
-      ${p.features ? `<tr><th>규격</th><td>${escapeHtml(p.features)}</td></tr>` : ''}
-      ${p.shippingInfo ? `<tr><th>배송안내</th><td>${escapeHtml(p.shippingInfo)}</td></tr>` : ''}
-    </table>
-    ${p.description ? `<div class="desc-block">${escapeHtml(p.description)}</div>` : ''}
-    <button class="btn-add-cart" data-add-cart="${p.id}">견적 담기</button>`;
-}
-
 function pageHtml(pageData) {
   const catalog = state.catalog;
   if (!pageData) return '<div class="page blank"></div>';
@@ -186,7 +161,7 @@ function pageHtml(pageData) {
           </div>
           <div class="product-grid">
             ${pageData.products.map((p) => `
-              <div class="product-tile" data-product="${p.id}">
+              <div class="product-tile">
                 <div class="image-frame">
                   <img src="${p.imageUrl}" onerror="this.src='/assets/no-image.svg'" alt="${escapeHtml(p.name)}" />
                   ${promoStampHtml(p.promoBadge)}
@@ -198,6 +173,7 @@ function pageHtml(pageData) {
                     ${p.originalPrice ? `<span class="original">${formatPrice(p.originalPrice)}</span>` : ''}
                     ${formatPrice(p.salePrice)}
                   </div>` : ''}
+                <button class="btn-add-cart" data-add-cart="${p.id}">견적 담기</button>
               </div>`).join('')}
           </div>
         </div>`;
@@ -306,7 +282,7 @@ function initPageFlip() {
 // reaching PageFlip's listener, in the capture phase, before it can start
 // tracking a flip. The follow-up 'click' event is untouched and still
 // reaches our own data-goto/data-add-cart handling below.
-const INTERACTIVE_SELECTOR = 'button, a, input, [data-goto], [data-add-cart], [data-product], [data-cover-download]';
+const INTERACTIVE_SELECTOR = 'button, a, input, [data-goto], [data-add-cart], [data-cover-download]';
 function stopIfInteractive(e) {
   if (e.target.closest(INTERACTIVE_SELECTOR)) e.stopPropagation();
 }
@@ -341,11 +317,6 @@ bookFlipEl.addEventListener('click', (e) => {
   const gotoEl = e.target.closest('[data-goto]');
   if (gotoEl) {
     goToPage(Number(gotoEl.dataset.goto));
-    return;
-  }
-  const productEl = e.target.closest('[data-product]');
-  if (productEl) {
-    openProductModal(Number(productEl.dataset.product));
     return;
   }
   const downloadEl = e.target.closest('[data-cover-download]');
@@ -700,34 +671,6 @@ function findProductById(id) {
   return null;
 }
 
-// ---------------------------------------------------------------------
-// Product detail modal — opened on tile click instead of flipping to a
-// dedicated page.
-// ---------------------------------------------------------------------
-const productModalOverlay = document.getElementById('productModalOverlay');
-const productModal = document.getElementById('productModal');
-const productModalContent = document.getElementById('productModalContent');
-
-function openProductModal(productId) {
-  const product = findProductById(productId);
-  if (!product) return;
-  productModalContent.innerHTML = productDetailHtml(product, state.catalog);
-  productModalOverlay.classList.add('open');
-  productModal.classList.add('open');
-}
-
-function closeProductModal() {
-  productModalOverlay.classList.remove('open');
-  productModal.classList.remove('open');
-}
-
-productModalOverlay.addEventListener('click', closeProductModal);
-document.getElementById('btnCloseProductModal').addEventListener('click', closeProductModal);
-productModalContent.addEventListener('click', (e) => {
-  const addCartEl = e.target.closest('[data-add-cart]');
-  if (addCartEl) addToCart(Number(addCartEl.dataset.addCart));
-});
-
 function addToCart(productId) {
   const product = findProductById(productId);
   if (!product) return;
@@ -1042,21 +985,11 @@ document.querySelectorAll('#moreSheet [data-more]').forEach((btn) => {
   });
 });
 
-// Product detail is a click-to-open modal in the interactive viewer, but a
-// printed/PDF copy has no "click" affordance, so print output still gets a
-// full detail page per product, inserted right after its category grid.
 function buildPrintContainer() {
   const container = document.getElementById('printContainer');
-  const parts = [];
-  state.pages.forEach((pageData) => {
-    parts.push(`<div class="print-page">${pageHtml(pageData)}</div>`);
-    if (pageData.type === 'categoryGrid') {
-      pageData.products.forEach((p) => {
-        parts.push(`<div class="print-page"><div class="page product-detail">${productDetailHtml(p, state.catalog)}</div></div>`);
-      });
-    }
-  });
-  container.innerHTML = parts.join('');
+  container.innerHTML = state.pages.map((pageData) => `
+    <div class="print-page">${pageHtml(pageData)}</div>
+  `).join('');
 }
 
 function triggerPrint() {

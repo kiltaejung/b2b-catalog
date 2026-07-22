@@ -198,6 +198,12 @@ html, body {
 
 .page.blank { background: #f8f6f0; }
 
+/* PageFlip's decorative shadow overlays sit on top of page content even at
+   rest and otherwise swallow clicks meant for the buttons/links beneath. */
+.stf__outerShadow, .stf__innerShadow, .stf__hardShadow, .stf__hardInnerShadow {
+  pointer-events: none;
+}
+
 /* Cover */
 .page-cover {
   position: absolute;
@@ -282,56 +288,62 @@ html, body {
 .category-banner {
   background: var(--band);
   color: #fff;
-  padding: 0.9rem 1.1rem;
+  padding: 0.65rem 1.1rem;
   border-radius: 8px;
-  margin: -1.5rem -1.5rem 1rem -1.5rem;
+  margin: -1.5rem -1.5rem 0.75rem -1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.category-banner h2 { margin: 0; font-size: 1.1rem; }
+.category-banner h2 { margin: 0; font-size: 1.05rem; }
 .category-banner .banner-image {
   height: 100%;
   background-size: cover;
   background-position: center;
 }
 
+/* Sized so a full 6-product page (3 rows × 2 columns) always fits within
+   the page box without triggering its internal scroll. */
 .product-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 .product-tile {
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0.6rem;
-  cursor: pointer;
+  padding: 0.4rem;
   background: #fff;
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
-.product-tile:hover { box-shadow: 0 6px 16px rgba(0,0,0,0.12); transform: translateY(-2px); }
-.product-tile img { width: 100%; height: 150px; object-fit: cover; border-radius: 6px; background: #f1f5f9; }
+.product-tile img { width: 100%; height: 88px; object-fit: cover; border-radius: 6px; background: #f1f5f9; }
 .brand-badge {
   display: inline-block;
   background: var(--band);
   color: #fff;
   font-size: 0.65rem;
-  padding: 0.15rem 0.45rem;
+  padding: 0.12rem 0.4rem;
   border-radius: 4px;
-  margin: 0.4rem 0 0.2rem;
+  margin: 0.3rem 0 0.15rem;
 }
-.product-tile .tile-name { font-size: 0.8rem; font-weight: 600; line-height: 1.3; height: 2.1em; overflow: hidden; }
+.product-tile .tile-name { font-size: 0.78rem; font-weight: 600; line-height: 1.25; height: 1.95em; overflow: hidden; }
 .price-badge {
   display: inline-block;
-  margin-top: 0.3rem;
+  margin-top: 0.25rem;
   background: var(--accent-soft);
   color: var(--accent);
   font-weight: 700;
-  font-size: 0.8rem;
-  padding: 0.15rem 0.5rem;
+  font-size: 0.78rem;
+  padding: 0.12rem 0.45rem;
   border-radius: 4px;
 }
-.price-badge .original { color: #94a3b8; text-decoration: line-through; font-weight: 400; margin-right: 0.3rem; font-size: 0.7rem; }
+.price-badge .original { color: #94a3b8; text-decoration: line-through; font-weight: 400; margin-right: 0.3rem; font-size: 0.68rem; }
+.product-tile .btn-add-cart {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.3rem;
+  font-size: 0.75rem;
+}
 
 /* Promo stamp (강력추천 / 베스트) */
 .image-frame { position: relative; }
@@ -339,8 +351,8 @@ html, body {
   position: absolute;
   left: 6px;
   bottom: 6px;
-  width: 52px;
-  height: 52px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   border: 2px solid var(--accent);
   color: var(--accent);
@@ -349,7 +361,7 @@ html, body {
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   text-align: center;
   line-height: 1.1;
   transform: rotate(-12deg);
@@ -357,18 +369,7 @@ html, body {
   pointer-events: none;
 }
 .promo-stamp.badge-best { border-color: var(--band); color: var(--band); }
-.product-detail .image-frame .promo-stamp { width: 68px; height: 68px; font-size: 0.72rem; left: 10px; bottom: 10px; }
 
-/* Product detail page */
-.product-detail img.hero { width: 100%; height: 220px; object-fit: cover; border-radius: 8px; margin-bottom: 0.9rem; background: #f1f5f9; }
-.product-detail h2 { margin: 0 0 0.2rem; font-size: 1.15rem; }
-.product-detail .brand-line { color: #64748b; font-size: 0.85rem; margin-bottom: 0.5rem; }
-.product-detail .price-line { font-size: 1.2rem; font-weight: 800; color: var(--accent); margin-bottom: 0.75rem; }
-.product-detail .price-line .original { color: #94a3b8; text-decoration: line-through; font-size: 0.85rem; font-weight: 400; margin-right: 0.4rem; }
-.spec-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-bottom: 0.9rem; }
-.spec-table th { text-align: left; color: #64748b; width: 90px; padding: 0.35rem 0; vertical-align: top; }
-.spec-table td { padding: 0.35rem 0; }
-.product-detail .desc-block { font-size: 0.85rem; line-height: 1.5; white-space: pre-line; margin-bottom: 0.75rem; }
 .btn-add-cart {
   background: var(--band);
   color: #fff;
@@ -382,39 +383,6 @@ html, body {
 /* Back / last page */
 .back-page h2 { font-size: 1.1rem; border-bottom: 2px solid var(--band); padding-bottom: 0.4rem; }
 .back-page section { margin-bottom: 1.2rem; font-size: 0.85rem; line-height: 1.6; }
-
-/* Product detail modal — opened on tile click instead of being a page in
-   the flip sequence (it's still rendered as a real page for print/PDF). */
-.product-modal-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.55);
-  z-index: 65;
-}
-.product-modal-overlay.open { display: block; }
-.product-modal {
-  display: none;
-  position: fixed;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(90vw, 480px);
-  max-height: 86vh;
-  overflow-y: auto;
-  background: var(--paper);
-  border-radius: 12px;
-  padding: 1.5rem;
-  z-index: 66;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-}
-.product-modal.open { display: block; }
-.product-modal-close {
-  position: absolute;
-  top: 0.6rem; right: 0.6rem;
-  background: rgba(127,127,127,0.15);
-  color: var(--ink);
-  z-index: 1;
-}
 
 /* Fixed bottom icon bar */
 .bottom-bar {
@@ -703,9 +671,27 @@ html, body {
 }
 
 @media (max-width: 480px) {
-  .product-grid { grid-template-columns: 1fr; }
   .toolbar-right { gap: 0.3rem; }
   .toolbar-right .icon-btn { padding: 0.4rem 0.5rem; }
   .toolbar-right .icon-btn-label { display: none; }
   .price-search-btn { max-width: 50vw; }
+}
+
+/* Page height (portrait single-page mode) shrinks continuously with
+   viewport width, so the compact tile sizing has to kick in well before
+   480px — up to ~600px wide the default tile sizing is still tall enough
+   to overflow the page box and trigger its internal scroll. */
+@media (max-width: 620px) {
+  /* Page height shrinks with viewport width at this breakpoint, so tiles
+     stay 2-up (not 1-up) and are trimmed further to keep a full 6-product
+     page inside the page box without triggering its internal scroll. */
+  .category-banner { padding: 0.5rem 0.8rem; margin-bottom: 0.5rem; }
+  .category-banner h2 { font-size: 0.95rem; }
+  .product-grid { gap: 0.35rem; }
+  .product-tile { padding: 0.3rem; }
+  .product-tile img { height: 52px; }
+  .brand-badge { display: none; }
+  .product-tile .tile-name { height: auto; margin-top: 0.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .price-badge { font-size: 0.7rem; padding: 0.08rem 0.35rem; margin-top: 0.15rem; }
+  .product-tile .btn-add-cart { margin-top: 0.2rem; padding: 0.2rem; font-size: 0.68rem; }
 }
