@@ -115,7 +115,6 @@ function pageHtml(pageData) {
               </div>
               <div>
                 <div class="main-title">${escapeHtml(catalog.mainTitle)}</div>
-                <div class="subtitle">PREMIUM · GIFT · GUIDE · BOOK</div>
                 ${catalog.clientName ? `
                   <div class="client-tag" style="margin-top:0.9rem">
                     ${catalog.clientLogoUrl ? `<img src="${catalog.clientLogoUrl}" alt="client" />` : ''}
@@ -287,7 +286,10 @@ function animatedStep(direction, updateFn) {
     renderSpread();
     return;
   }
-  pageEls.forEach((p) => p.classList.add(direction > 0 ? 'turning-next' : 'turning-prev'));
+  // Turn a single leaf at a time, hinged at the book's center spine,
+  // instead of rotating the whole spread as one rigid block.
+  const turningEl = direction > 0 ? pageEls[pageEls.length - 1] : pageEls[0];
+  turningEl.classList.add(direction > 0 ? 'turning-next' : 'turning-prev');
   setTimeout(() => {
     updateFn();
     renderSpread();

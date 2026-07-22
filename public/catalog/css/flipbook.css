@@ -181,12 +181,11 @@ html, body {
 
 /* Cover */
 .page-cover {
-  height: 100%;
-  position: relative;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
   color: #fff;
   background: linear-gradient(160deg, var(--band) 0%, #0f172a 100%);
-  margin: -1.5rem;
   border-radius: inherit;
 }
 .page-cover .cover-image {
@@ -209,7 +208,6 @@ html, body {
 .page-cover .brand-row img { height: 32px; }
 .page-cover .season { letter-spacing: 0.3em; font-size: 0.85rem; opacity: 0.85; }
 .page-cover .main-title { font-size: 1.9rem; font-weight: 800; line-height: 1.3; }
-.page-cover .subtitle { margin-top: 0.4rem; letter-spacing: 0.25em; font-size: 0.75rem; opacity: 0.75; }
 .page-cover .client-tag {
   display: inline-flex;
   align-items: center;
@@ -622,10 +620,14 @@ html, body {
 .page.turning-next {
   animation: turnNext 0.45s ease forwards;
   transform-origin: left center;
+  backface-visibility: hidden;
+  z-index: 5;
 }
 .page.turning-prev {
   animation: turnPrev 0.45s ease forwards;
   transform-origin: right center;
+  backface-visibility: hidden;
+  z-index: 5;
 }
 @keyframes turnNext {
   0% { transform: rotateY(0deg); }
