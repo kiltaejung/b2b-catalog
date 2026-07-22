@@ -6,15 +6,13 @@ const state = {
   pages: [],
   productPageIndex: {},
   tocEntries: [],
-  currentSpreadIndex: 0,
-  currentMobilePage: 0,
+  currentPageIndex: 0,
   zoom: 1,
   panX: 0,
   panY: 0,
   budgetFilter: null,
   settings: {
     darkMode: true,
-    pageAnimation: true,
     autoFit: true,
   },
 };
@@ -23,22 +21,14 @@ const params = new URLSearchParams(window.location.search);
 const catalogId = params.get('id');
 
 const bookViewport = document.getElementById('bookViewport');
-const bookSpread = document.getElementById('bookSpread');
+const bookFlipEl = document.getElementById('bookFlip');
 const bookStage = document.getElementById('bookStage');
 const pageSlider = document.getElementById('pageSlider');
 const pageCurrentText = document.getElementById('pageCurrentText');
 const totalPagesEl = document.getElementById('totalPages');
 const loadingScreen = document.getElementById('loadingScreen');
 
-// PC always shows a two-page spread; mobile always shows one page; tablets
-// show a spread only in landscape orientation ("상황에 따라 양면/단면").
-function isDesktop() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  if (w >= 1024) return true;
-  if (w < 768) return false;
-  return w > h; // tablet: landscape = spread, portrait = single page
-}
+let pageFlip = null;
 
 function getMaxZoom() {
   return (state.catalog && state.catalog.maxZoom) || 3;
@@ -109,12 +99,14 @@ function pageHtml(pageData) {
       // plain gradient background.
       if (catalog.coverImageUrl) {
         return `
-          <div class="page single cover-fit">
-            <img class="cover-image-el" src="${catalog.coverImageUrl}" alt="표지" />
+          <div class="page" data-density="hard">
+            <div class="cover-image-wrap">
+              <img src="${catalog.coverImageUrl}" alt="표지" />
+            </div>
           </div>`;
       }
       return `
-        <div class="page single">
+        <div class="page" data-density="hard">
           <div class="page-cover">
             <div class="cover-overlay">
               <div>
@@ -137,7 +129,7 @@ function pageHtml(pageData) {
 
     case 'toc':
       return `
-        <div class="page left">
+        <div class="page">
           <div class="toc-title">목차</div>
           <ul class="toc-list">
             ${pageData.entries.map((e) => `
@@ -151,7 +143,7 @@ function pageHtml(pageData) {
 
     case 'categoryGrid':
       return `
-        <div class="page right">
+        <div class="page">
           <div class="category-banner">
             <h2>${escapeHtml(pageData.category)}${pageData.partTotal > 1 ? ` (${pageData.partIndex + 1}/${pageData.partTotal})` : ''}</h2>
           </div>
@@ -176,7 +168,7 @@ function pageHtml(pageData) {
     case 'product': {
       const p = pageData.product;
       return `
-        <div class="page left product-detail">
+        <div class="page product-detail">
           <div class="image-frame">
             <img class="hero" src="${p.imageUrl}" onerror="this.src='/assets/no-image.svg'" alt="${escapeHtml(p.name)}" />
             ${promoStampHtml(p.promoBadge)}
@@ -203,7 +195,7 @@ function pageHtml(pageData) {
 
     case 'back':
       return `
-        <div class="page right back-page">
+        <div class="page back-page" data-density="hard">
           <h2>주문 안내</h2>
           <section>본 카탈로그에서 마음에 드는 상품을 '견적 담기'로 담아 담당자에게 문의해주세요. 최소 주문 수량 및 조건은 상품별로 상이할 수 있습니다.</section>
           <h2>배송 안내</h2>
@@ -235,110 +227,93 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-function maxSpreadIndex() {
-  return Math.floor(state.pages.length / 2);
+// ---------------------------------------------------------------------
+// Book rendering — a single page is always shown, one at a time, using
+// the page-flip library for a realistic paper-curl turn animation.
+// ---------------------------------------------------------------------
+function buildPageElements() {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = state.pages.map((p) => pageHtml(p)).join('');
+  return Array.from(wrap.children);
 }
 
-function currentLogicalPage() {
+function updateNavUI(oneBasedPage) {
   const total = state.pages.length;
-  if (isDesktop()) {
-    const s = state.currentSpreadIndex;
-    const leftIndex = 2 * s - 1;
-    const rightIndex = 2 * s;
-    return (rightIndex < total ? rightIndex : leftIndex) + 1;
-  }
-  return Math.min(Math.max(state.currentMobilePage, 0), total - 1) + 1;
-}
-
-function renderSpread() {
-  const total = state.pages.length;
-  if (isDesktop()) {
-    const s = state.currentSpreadIndex;
-    const leftIndex = 2 * s - 1;
-    const rightIndex = 2 * s;
-    const leftPage = leftIndex >= 0 && leftIndex < total ? state.pages[leftIndex] : null;
-    const rightPage = rightIndex < total ? state.pages[rightIndex] : null;
-    bookSpread.innerHTML = pageHtml(leftPage) + pageHtml(rightPage);
-  } else {
-    const idx = Math.min(Math.max(state.currentMobilePage, 0), total - 1);
-    bookSpread.innerHTML = pageHtml(state.pages[idx]);
-  }
-  const shown = currentLogicalPage();
-  pageCurrentText.textContent = shown;
+  pageCurrentText.textContent = oneBasedPage;
   totalPagesEl.textContent = total;
   pageSlider.min = 1;
   pageSlider.max = total;
-  pageSlider.value = shown;
+  pageSlider.value = oneBasedPage;
   resetPan();
   if (state.settings.autoFit) setZoom(1, false);
 }
 
+function initPageFlip() {
+  // Must match the .book-flip aspect-ratio (660:860) exactly — PageFlip's
+  // "stretch" mode derives its internal page geometry from this ratio, and
+  // any mismatch against the container's real rendered ratio leaves gaps
+  // and breaks its own drag/corner hit-testing (see the CSS comment).
+  pageFlip = new St.PageFlip(bookFlipEl, {
+    width: 480,
+    height: 626,
+    size: 'stretch',
+    minWidth: 280,
+    maxWidth: 660,
+    minHeight: 365,
+    maxHeight: 860,
+    maxShadowOpacity: 0.5,
+    showCover: true,
+    usePortrait: true,
+    mobileScrollSupport: true,
+  });
+  pageFlip.loadFromHTML(buildPageElements());
+  pageFlip.on('flip', (e) => {
+    state.currentPageIndex = e.data;
+    updateNavUI(e.data + 1);
+  });
+  updateNavUI(1);
+}
+
+// PageFlip treats any mousedown/touchstart on a page as the start of a
+// possible flip — including ones landing on a product tile, TOC entry, or
+// the add-to-cart button. disableFlipByClick can't fix this without also
+// breaking flipNext()/flipPrev() (both route through the same click gate),
+// so instead the interactive elements themselves stop the press from ever
+// reaching PageFlip's listener, in the capture phase, before it can start
+// tracking a flip. The follow-up 'click' event is untouched and still
+// reaches our own data-goto/data-add-cart handling below.
+const INTERACTIVE_SELECTOR = 'button, a, input, [data-goto], [data-add-cart]';
+function stopIfInteractive(e) {
+  if (e.target.closest(INTERACTIVE_SELECTOR)) e.stopPropagation();
+}
+bookFlipEl.addEventListener('mousedown', stopIfInteractive, true);
+bookFlipEl.addEventListener('touchstart', stopIfInteractive, true);
+
 function goToPage(oneBasedIndex) {
   const total = state.pages.length;
   const clamped = Math.min(Math.max(oneBasedIndex, 1), total);
-  if (isDesktop()) {
-    state.currentSpreadIndex = Math.floor(clamped / 2);
-  } else {
-    state.currentMobilePage = clamped - 1;
-  }
-  renderSpread();
-}
-
-function animatedStep(direction, updateFn) {
-  if (!state.settings.pageAnimation) {
-    updateFn();
-    renderSpread();
-    return;
-  }
-  const pageEls = bookSpread.querySelectorAll('.page');
-  if (!pageEls.length) {
-    updateFn();
-    renderSpread();
-    return;
-  }
-  // Turn a single leaf at a time, hinged at the book's center spine,
-  // instead of rotating the whole spread as one rigid block.
-  const turningEl = direction > 0 ? pageEls[pageEls.length - 1] : pageEls[0];
-  turningEl.classList.add(direction > 0 ? 'turning-next' : 'turning-prev');
-  setTimeout(() => {
-    updateFn();
-    renderSpread();
-  }, 420);
+  pageFlip.turnToPage(clamped - 1);
+  state.currentPageIndex = clamped - 1;
+  updateNavUI(clamped);
 }
 
 function next() {
-  animatedStep(1, () => {
-    if (isDesktop()) {
-      state.currentSpreadIndex = Math.min(state.currentSpreadIndex + 1, maxSpreadIndex());
-    } else {
-      state.currentMobilePage = Math.min(state.currentMobilePage + 1, state.pages.length - 1);
-    }
-  });
+  pageFlip.flipNext();
 }
 
 function prev() {
-  animatedStep(-1, () => {
-    if (isDesktop()) {
-      state.currentSpreadIndex = Math.max(state.currentSpreadIndex - 1, 0);
-    } else {
-      state.currentMobilePage = Math.max(state.currentMobilePage - 1, 0);
-    }
-  });
+  pageFlip.flipPrev();
 }
 
 function first() {
-  state.currentSpreadIndex = 0;
-  state.currentMobilePage = 0;
-  renderSpread();
+  goToPage(1);
 }
 
 function last() {
-  state.currentSpreadIndex = maxSpreadIndex();
-  state.currentMobilePage = state.pages.length - 1;
-  renderSpread();
+  goToPage(state.pages.length);
 }
 
-bookSpread.addEventListener('click', (e) => {
+bookFlipEl.addEventListener('click', (e) => {
   const gotoEl = e.target.closest('[data-goto]');
   if (gotoEl) {
     goToPage(Number(gotoEl.dataset.goto));
@@ -354,7 +329,6 @@ document.getElementById('btnNext').addEventListener('click', next);
 document.getElementById('btnPrev').addEventListener('click', prev);
 document.getElementById('btnFirst').addEventListener('click', first);
 document.getElementById('btnLast').addEventListener('click', last);
-window.addEventListener('resize', renderSpread);
 
 pageSlider.addEventListener('input', () => goToPage(Number(pageSlider.value)));
 
@@ -413,7 +387,9 @@ document.getElementById('btnToc').addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------------
-// Zoom + pan + pinch + double-tap + tap/swipe page turn
+// Zoom + pan + pinch + double-tap. Page-turning itself (drag, swipe, edge
+// click) is owned by the page-flip library now, so this layer only ever
+// engages for pinch-zoom and panning/double-tap-zoom once zoomed in.
 // ---------------------------------------------------------------------
 const zoomLevelText = document.getElementById('zoomLevelText');
 
@@ -448,10 +424,6 @@ let lastTapPos = null;
 
 function pointDistance(p1, p2) {
   return Math.hypot(p1.x - p2.x, p1.y - p2.y);
-}
-
-function isInteractiveTarget(el) {
-  return Boolean(el.closest('button, a, input, [data-goto], [data-add-cart]'));
 }
 
 bookViewport.addEventListener('pointerdown', (e) => {
@@ -498,10 +470,7 @@ function endGesture(e) {
   singlePointerStart = null;
   bookStage.classList.remove('panning');
 
-  const dx = e.clientX - start.x;
-  const dy = e.clientY - start.y;
-  const dist = Math.hypot(dx, dy);
-  const elapsed = Date.now() - start.time;
+  const dist = Math.hypot(e.clientX - start.x, e.clientY - start.y);
   const isTap = dist < 10;
 
   if (isTap) {
@@ -515,14 +484,6 @@ function endGesture(e) {
     }
     lastTapTime = now;
     lastTapPos = { x: e.clientX, y: e.clientY };
-
-    if (state.zoom <= 1.01 && !isInteractiveTarget(start.target)) {
-      const ratio = (e.clientX - bookViewport.getBoundingClientRect().left) / bookViewport.clientWidth;
-      if (ratio < 0.33) prev();
-      else if (ratio > 0.67) next();
-    }
-  } else if (state.zoom <= 1.01 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5 && elapsed < 600) {
-    if (dx < 0) next(); else prev();
   }
 }
 bookViewport.addEventListener('pointerup', endGesture);
@@ -886,11 +847,10 @@ document.querySelectorAll('#shareSheet [data-share]').forEach((btn) => {
 });
 
 // ---------------------------------------------------------------------
-// Settings (dark mode / page-turn animation / auto-fit / rotation lock)
+// Settings (dark mode / auto-fit / rotation lock)
 // ---------------------------------------------------------------------
 const SETTINGS_STORAGE_KEY = 'b2bCatalogSettings';
 const settingDarkMode = document.getElementById('settingDarkMode');
-const settingPageAnim = document.getElementById('settingPageAnim');
 const settingAutoFit = document.getElementById('settingAutoFit');
 
 function loadSettings() {
@@ -909,17 +869,12 @@ function saveSettings() {
 function applySettingsToUI() {
   document.documentElement.dataset.theme = state.settings.darkMode ? 'dark' : 'light';
   settingDarkMode.checked = state.settings.darkMode;
-  settingPageAnim.checked = state.settings.pageAnimation;
   settingAutoFit.checked = state.settings.autoFit;
 }
 
 settingDarkMode.addEventListener('change', () => {
   state.settings.darkMode = settingDarkMode.checked;
   applySettingsToUI();
-  saveSettings();
-});
-settingPageAnim.addEventListener('change', () => {
-  state.settings.pageAnimation = settingPageAnim.checked;
   saveSettings();
 });
 settingAutoFit.addEventListener('change', () => {
@@ -996,7 +951,7 @@ function pageThumbImage(pageData) {
 
 function renderThumbnails(filter = '') {
   const grid = document.getElementById('thumbnailGrid');
-  const current = currentLogicalPage();
+  const current = state.currentPageIndex + 1;
   const q = filter.trim().toLowerCase();
 
   const items = state.pages
@@ -1077,8 +1032,9 @@ async function init() {
     state.productPageIndex = built.productPageIndex;
     state.tocEntries = built.tocEntries;
 
+    initPageFlip();
     const initialPage = Number(params.get('page')) || 1;
-    goToPage(initialPage);
+    if (initialPage > 1) goToPage(initialPage);
     renderCart();
     updateExportUI();
     initKakaoSdk();

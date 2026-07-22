@@ -22,7 +22,7 @@
 
   <main id="bookViewport" class="book-viewport">
     <div id="bookStage" class="book-stage">
-      <div id="bookSpread" class="book-spread"></div>
+      <div id="bookFlip" class="book-flip"></div>
     </div>
   </main>
 
@@ -140,10 +140,6 @@
       <label class="switch"><input type="checkbox" id="settingDarkMode" /><span class="switch-track"></span></label>
     </div>
     <div class="settings-row">
-      <span>페이지 넘김 애니메이션</span>
-      <label class="switch"><input type="checkbox" id="settingPageAnim" checked /><span class="switch-track"></span></label>
-    </div>
-    <div class="settings-row">
       <span>자동 맞춤</span>
       <label class="switch"><input type="checkbox" id="settingAutoFit" checked /><span class="switch-track"></span></label>
     </div>
@@ -191,6 +187,7 @@
 
   <div id="printContainer" class="print-only"></div>
 
+  <script src="js/vendor/page-flip.browser.js"></script>
   <script src="js/flipbook.js"></script>
 </body>
 </html>
