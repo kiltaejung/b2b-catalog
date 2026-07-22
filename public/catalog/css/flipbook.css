@@ -159,23 +159,28 @@ html, body {
 }
 .book-stage.panning { transition: none; }
 
-/* Single page only, always — PageFlip's "stretch" mode reads this
-   container's own rendered box size on load/resize and re-derives its
-   internal page geometry from it. That geometry has to keep the exact
-   width:height ratio given to `new St.PageFlip(...)` (660:860 below) or
-   PageFlip only matches the container's width and centers vertically
-   inside it, leaving visible gaps above/below AND silently breaking its
-   own corner-drag hit-testing (real screen coordinates stop lining up
-   with its internal, differently-scaled page model). aspect-ratio here
-   keeps both axes locked together as the envelope shrinks. Kept narrow
-   enough that PageFlip never has room for a two-page spread. */
+/* Cover shows alone; from page 2 on, a wide-enough window shows a
+   two-page spread (both handled by PageFlip itself via showCover +
+   usePortrait). Width/height are set inline by sizeBookFlip() in
+   flipbook.js, not via CSS — PageFlip's "stretch" mode derives HEIGHT
+   from WIDTH using the exact width:height ratio given to
+   `new St.PageFlip(...)`, never the reverse, and getting the largest box
+   that both fits the available space AND keeps that exact ratio needs
+   real arithmetic (auto + aspect-ratio + max-width + max-height on a
+   plain block box resolves through flex/shrink-to-fit rules that don't
+   reliably converge on that same answer). A mismatched ratio here leaves
+   visible gaps AND silently breaks PageFlip's own corner-drag
+   hit-testing (real screen coordinates stop lining up with its internal,
+   differently-scaled page model). */
 .book-flip {
-  width: auto;
-  height: auto;
-  max-width: min(46vw, 660px);
-  max-height: min(calc(100vh - var(--toolbar-h, 56px) - var(--bottom-h, 56px) - 24px), 860px);
-  aspect-ratio: 660 / 860;
   box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+  /* PageFlip inline-sets min-width/min-height from settings.minWidth/
+     minHeight (430/560 — chosen to line up the portrait/landscape switch
+     with SPREAD_BREAKPOINT in flipbook.js, not as a real size floor), which
+     would otherwise force the book wider/taller than the screen on small
+     phones. !important is required to win over that inline style. */
+  min-width: 0 !important;
+  min-height: 0 !important;
 }
 
 .page {
@@ -642,7 +647,6 @@ html, body {
 .loading-screen.hidden { display: none; }
 
 @media (max-width: 860px) {
-  .book-flip { max-width: 94vw; max-height: min(calc(100vh - var(--toolbar-h, 56px) - var(--bottom-h, 56px) - 16px), 82vh); }
   .product-grid { grid-template-columns: repeat(2, 1fr); }
   .toolbar { flex-wrap: wrap; padding: 0.5rem; gap: 0.5rem; }
   .cart-drawer { width: 100%; right: -100%; }

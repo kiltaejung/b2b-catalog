@@ -249,17 +249,22 @@ function updateNavUI(oneBasedPage) {
 }
 
 function initPageFlip() {
-  // Must match the .book-flip aspect-ratio (660:860) exactly — PageFlip's
+  // width:height must match the .book-flip aspect-ratio exactly — PageFlip's
   // "stretch" mode derives its internal page geometry from this ratio, and
   // any mismatch against the container's real rendered ratio leaves gaps
   // and breaks its own drag/corner hit-testing (see the CSS comment).
+  // minWidth is set so the portrait/landscape switch (at 2×minWidth) lands
+  // on the same 860px container width where the CSS aspect-ratio itself
+  // switches (from the @media breakpoint below) — otherwise there's a
+  // window-width range where the two disagree and the gap/hit-test bug
+  // above comes right back.
   pageFlip = new St.PageFlip(bookFlipEl, {
     width: 480,
     height: 626,
     size: 'stretch',
-    minWidth: 280,
+    minWidth: 430,
     maxWidth: 660,
-    minHeight: 365,
+    minHeight: 560,
     maxHeight: 860,
     maxShadowOpacity: 0.5,
     showCover: true,
@@ -1010,8 +1015,46 @@ function syncToolbarHeight() {
     document.documentElement.style.setProperty('--toolbar-h', `${toolbar.offsetHeight}px`);
   }
 }
-window.addEventListener('resize', syncToolbarHeight);
-syncToolbarHeight();
+
+// Below this width, the book stays single-page (portrait); above it, a
+// two-page spread. Must match minWidth in initPageFlip() (2×minWidth=860)
+// so PageFlip's own orientation switch and our sizing agree on the same
+// breakpoint.
+const SPREAD_BREAKPOINT = 860;
+const PAGE_RATIO = 660 / 860;
+
+// Computes the exact pixel box PageFlip should render at: the largest
+// size that (a) fits the space left after the toolbar/bottom bar and
+// (b) keeps the same width:height ratio passed to `new St.PageFlip()`.
+// Plain CSS (auto width/height + aspect-ratio + max-width/max-height)
+// can't reliably resolve to that same answer once the container is a
+// flex descendant with no definite width of its own to shrink-to-fit
+// against, so this is done with real arithmetic instead.
+function sizeBookFlip() {
+  const isSingle = window.innerWidth <= SPREAD_BREAKPOINT;
+  const toolbarH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--toolbar-h')) || 56;
+  const bottomH = 56;
+  const margin = isSingle ? 16 : 24;
+  const maxH = Math.min(window.innerHeight - toolbarH - bottomH - margin, 860);
+  const maxW = isSingle ? Math.min(window.innerWidth * 0.94, 660) : 1320;
+  const ratio = isSingle ? PAGE_RATIO : PAGE_RATIO * 2;
+
+  const w = Math.min(maxW, maxH * ratio);
+  // Sized on #bookStage, not #bookFlip itself — PageFlip's own "autoSize"
+  // handling (on by default) sets #bookFlip's width to 100% of ITS parent
+  // and derives height internally from that via a padding-bottom percent
+  // trick using the settings ratio, so anything set directly on #bookFlip
+  // just gets overwritten. Giving the parent a definite pixel width is
+  // what "100%" needs to resolve to the right answer.
+  bookStage.style.width = `${w}px`;
+}
+
+function syncLayout() {
+  syncToolbarHeight();
+  sizeBookFlip();
+}
+window.addEventListener('resize', syncLayout);
+syncLayout();
 
 // Init
 async function init() {
