@@ -282,6 +282,25 @@ function updateNavUI(oneBasedPage) {
 // PageFlip has no live setter for this ratio, so switching between these
 // tears the instance down and builds a fresh one (see ensurePageFlipMode()).
 // (PHONE_MODE_BREAKPOINT is defined further down, next to getLayoutMode().)
+// Phone mode's box isn't a fixed ratio like the other two modes — it's
+// computed fresh from the actual available width AND height every time a
+// 'phone'-mode PageFlip instance is (re)built, so the page's own ratio
+// exactly matches whatever this specific device/viewport has room for.
+// A fixed ratio (like tabletSingle/spread use) can only ever max out ONE
+// dimension — whichever is tighter, width or height×ratio — leaving the
+// other one short; letting the ratio itself be device-specific is what
+// fills both edges at once. Recomputed on every mode-entry, so it doesn't
+// track further resizes within the same 'phone' range (rotating to a
+// width that's still <=480 is rare) — see ensurePageFlipMode().
+function computePhoneBox() {
+  const toolbarH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--toolbar-h')) || 50;
+  const bottomH = 52;
+  const margin = 6;
+  const width = Math.round(Math.min(window.innerWidth * 0.98, 480));
+  const height = Math.round(Math.min(window.innerHeight - toolbarH - bottomH - margin, 924));
+  return { width, height };
+}
+
 function getPageFlipSettings(mode) {
   const base = {
     size: 'stretch',
@@ -294,7 +313,17 @@ function getPageFlipSettings(mode) {
     showPageCorners: false,
   };
   if (mode === 'phone') {
-    return { ...base, width: 480, height: 924, minWidth: 430, maxWidth: 480, minHeight: 827, maxHeight: 924 };
+    const { width, height } = computePhoneBox();
+    phoneRatio = width / height;
+    return {
+      ...base,
+      width,
+      height,
+      minWidth: Math.round(width * 0.6),
+      maxWidth: width,
+      minHeight: Math.round(height * 0.6),
+      maxHeight: height,
+    };
   }
   if (mode === 'tabletSingle') {
     return { ...base, width: 480, height: 626, minWidth: 430, maxWidth: 660, minHeight: 560, maxHeight: 860 };
@@ -348,6 +377,11 @@ attachBookFlipListeners();
 // instance. A no-op while state.pages hasn't loaded yet, and a no-op if
 // the mode hasn't actually changed since last time.
 let pageFlipMode = null;
+// Set by getPageFlipSettings() every time 'phone' mode is (re)built;
+// sizeBookFlip() reads this back so its own math matches whatever ratio
+// the live PageFlip instance actually has. Falls back to a reasonable
+// phone-shaped ratio if sizeBookFlip somehow runs before that ever happens.
+let phoneRatio = 480 / 924;
 function ensurePageFlipMode() {
   if (!state.pages.length) return;
   const mode = getLayoutMode();
@@ -1155,7 +1189,6 @@ const SPREAD_BREAKPOINT = 860;
 // isn't enough to justify a wider page at that same tall ratio, so it
 // would come out narrower than the tablet screen actually allows.
 const PHONE_MODE_BREAKPOINT = 480;
-const PAGE_RATIO_PHONE = 480 / 924;
 // Unchanged from before this file had per-mode ratios at all — kept as
 // its own name for 'tabletSingle' even though it's numerically identical
 // to PAGE_RATIO_SPREAD, since the two modes vary independently now.
@@ -1204,7 +1237,7 @@ function sizeBookFlip() {
     : mode === 'tabletSingle'
       ? Math.min(window.innerWidth * 0.98, 660)
       : Math.min(window.innerWidth * 0.98, 1320);
-  const ratio = mode === 'phone' ? PAGE_RATIO_PHONE : mode === 'tabletSingle' ? PAGE_RATIO_TABLET_SINGLE : PAGE_RATIO_SPREAD * 2;
+  const ratio = mode === 'phone' ? phoneRatio : mode === 'tabletSingle' ? PAGE_RATIO_TABLET_SINGLE : PAGE_RATIO_SPREAD * 2;
 
   const w = Math.min(maxW, maxH * ratio);
   // Sized on #bookStage, not #bookFlip itself — PageFlip's own "autoSize"
