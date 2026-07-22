@@ -109,10 +109,8 @@ function pageHtml(pageData) {
       // plain gradient background.
       if (catalog.coverImageUrl) {
         return `
-          <div class="page single">
-            <div class="page-cover">
-              <div class="cover-image" style="background-image:url('${catalog.coverImageUrl}')"></div>
-            </div>
+          <div class="page single cover-fit">
+            <img class="cover-image-el" src="${catalog.coverImageUrl}" alt="표지" />
           </div>`;
       }
       return `
