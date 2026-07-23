@@ -59,7 +59,7 @@ function chunkByLayout(arr, configuredSizes) {
   let pageIdx = 0;
   while (i < arr.length) {
     const configured = Array.isArray(configuredSizes) ? configuredSizes[pageIdx] : undefined;
-    const capacity = configured === 4 || configured === 6 ? configured : 6;
+    const capacity = configured === 3 || configured === 4 || configured === 6 ? configured : 6;
     chunks.push({ capacity, products: arr.slice(i, i + capacity) });
     i += capacity;
     pageIdx += 1;
@@ -184,7 +184,7 @@ function pageHtml(pageData) {
         </div>`;
 
     case 'categoryGrid': {
-      const capacity = pageData.capacity === 4 ? 4 : 6;
+      const capacity = pageData.capacity === 3 || pageData.capacity === 4 ? pageData.capacity : 6;
       return `
         <div class="page">
           <div class="category-banner">

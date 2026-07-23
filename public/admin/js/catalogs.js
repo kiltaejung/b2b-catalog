@@ -52,7 +52,7 @@ function computeCategoryOrder(products, categoryOrderText) {
 
 // Mirrors public/catalog/js/flipbook.js chunkByLayout(): products are
 // consumed greedily in display-order using the configured per-page sizes
-// (4 or 6 only); any configured sizes beyond what's needed go unused.
+// (3, 4, or 6 only); any configured sizes beyond what's needed go unused.
 // Unlike flipbook.js's chunkByLayout(), the admin preview renders exactly
 // one row per entry in `sizes` — including a trailing page with no
 // products left to fill it — so clicking "페이지 추가" always shows a new,
@@ -64,7 +64,7 @@ function chunkByLayoutPreview(products, sizes) {
   const pageCount = Array.isArray(sizes) && sizes.length ? sizes.length : Math.max(1, Math.ceil(products.length / 6));
   for (let pageIdx = 0; pageIdx < pageCount; pageIdx += 1) {
     const configured = Array.isArray(sizes) ? sizes[pageIdx] : undefined;
-    const capacity = configured === 4 || configured === 6 ? configured : 6;
+    const capacity = configured === 3 || configured === 4 || configured === 6 ? configured : 6;
     chunks.push({ capacity, products: products.slice(i, i + capacity) });
     i += capacity;
   }
@@ -100,6 +100,7 @@ function renderPageLayoutEditor() {
           <div class="pl-page-row" data-page-index="${idx}">
             <span class="pl-page-label">페이지 ${idx + 1}</span>
             <select data-pl-count>
+              <option value="3" ${chunk.capacity === 3 ? 'selected' : ''}>3개</option>
               <option value="4" ${chunk.capacity === 4 ? 'selected' : ''}>4개</option>
               <option value="6" ${chunk.capacity === 6 ? 'selected' : ''}>6개</option>
             </select>
@@ -183,8 +184,6 @@ function renderCatalogs(catalogs) {
     const tr = document.createElement('tr');
     const createdAt = new Date(c.created_at).toLocaleString('ko-KR');
     tr.innerHTML = `
-      <td>${c.main_title}</td>
-      <td>${c.season_name || ''}</td>
       <td>${c.client_name || '-'}</td>
       <td>${c.show_price ? '표시' : '숨김'}</td>
       <td>${createdAt}</td>

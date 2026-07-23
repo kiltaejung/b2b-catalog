@@ -12,15 +12,15 @@ function normalizeMaxZoom(value) {
 }
 
 // pageLayout: { [category]: number[] }, each entry a per-page product count.
-// Only 4 or 6 are ever allowed per page.
+// Only 3, 4, or 6 are ever allowed per page.
 function validatePageLayout(pageLayout) {
   if (pageLayout === undefined || pageLayout === null) return {};
   if (typeof pageLayout !== 'object' || Array.isArray(pageLayout)) {
-    throw new Error('상품 노출 수량은 4개 또는 6개만 설정할 수 있습니다.');
+    throw new Error('상품 노출 수량은 3개, 4개 또는 6개만 설정할 수 있습니다.');
   }
   for (const sizes of Object.values(pageLayout)) {
-    if (!Array.isArray(sizes) || sizes.some((n) => n !== 4 && n !== 6)) {
-      throw new Error('상품 노출 수량은 4개 또는 6개만 설정할 수 있습니다.');
+    if (!Array.isArray(sizes) || sizes.some((n) => n !== 3 && n !== 4 && n !== 6)) {
+      throw new Error('상품 노출 수량은 3개, 4개 또는 6개만 설정할 수 있습니다.');
     }
   }
   return pageLayout;
