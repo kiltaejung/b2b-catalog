@@ -1347,7 +1347,30 @@ function syncLayout() {
   sizeBookFlip();
   if (pageFlip) updateSoloCentering();
 }
-window.addEventListener('resize', syncLayout);
+// On mobile, the on-screen keyboard opening/closing fires window resize
+// events too (innerHeight shrinks/grows), even though nothing about the
+// actual page layout should change. Reacting to those mid-typing made the
+// catalog visibly shrink/jump/shake while the keyboard animated, and left
+// it mis-sized if a tap elsewhere (e.g. a sheet's "조회"/prev-page button)
+// blurred the field right as a resize tick landed. Debounce so we only
+// ever act on the settled-down size, and skip entirely while a text field
+// has focus - the focusout listener below re-syncs once typing is done.
+let resizeSettleTimer = null;
+function handleWindowResize() {
+  clearTimeout(resizeSettleTimer);
+  resizeSettleTimer = setTimeout(() => {
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+    syncLayout();
+  }, 150);
+}
+window.addEventListener('resize', handleWindowResize);
+document.addEventListener('focusout', (e) => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+    clearTimeout(resizeSettleTimer);
+    setTimeout(syncLayout, 250);
+  }
+});
 syncLayout();
 
 // ---------------------------------------------------------------------
