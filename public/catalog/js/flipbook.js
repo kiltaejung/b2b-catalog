@@ -1214,7 +1214,13 @@ function syncToolbarHeight() {
     const h = state.chromeHidden ? 0 : toolbar.offsetHeight;
     document.documentElement.style.setProperty('--toolbar-h', `${h}px`);
   }
-  document.documentElement.style.setProperty('--bottom-h', state.chromeHidden ? '0px' : '52px');
+  // Measured from the actual pill (plus its fixed 6px offset from the
+  // viewport edge) instead of a hardcoded value, so shrinking the bottom
+  // cluster's CSS size (e.g. the PC-only compact styling) is automatically
+  // reflected here without needing a matching JS change.
+  const bottomCluster = document.querySelector('.bottom-cluster');
+  const bottomH = state.chromeHidden ? 0 : (bottomCluster ? bottomCluster.offsetHeight + 6 : 52);
+  document.documentElement.style.setProperty('--bottom-h', `${bottomH}px`);
 }
 
 // Below this width, the book stays single-page (portrait); above it, a
@@ -1256,7 +1262,9 @@ function sizeBookFlip() {
   const toolbarH = state.chromeHidden
     ? 0
     : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--toolbar-h')) || 50;
-  const bottomH = state.chromeHidden ? 0 : 52;
+  const bottomH = state.chromeHidden
+    ? 0
+    : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bottom-h')) || 52;
   // Minimal breathing room around the book — the top/bottom chrome is
   // already trimmed to ~50px each, so the book itself should claim
   // essentially all the space left (~85-90% of the viewport height),
