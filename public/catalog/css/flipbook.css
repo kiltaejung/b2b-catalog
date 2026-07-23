@@ -211,11 +211,18 @@ html, body {
   background: var(--viewport-bg);
   transition: inset 0.3s ease;
 }
+/* PC mouse-drag-to-pan affordance while zoomed in (touch has no cursor, so
+   these are effectively PC-only). .panning-active is toggled for the
+   duration of an actual pointer-down drag. */
+.book-viewport.zoomed { cursor: grab; }
+.book-viewport.zoomed.panning-active { cursor: grabbing; }
 
 .book-stage {
   perspective: 2400px;
   transition: transform 0.25s ease, width 0.3s ease;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .book-stage.panning { transition: none; }
 
@@ -250,6 +257,10 @@ html, body {
   border-radius: 6px;
   position: relative;
 }
+/* Without this, a PC mouse-drag-to-pan (over a product image) can kick off
+   the browser's native image drag-ghost instead of/alongside our own
+   pointermove-based panning. */
+.page img { -webkit-user-drag: none; user-drag: none; }
 
 .page.blank { background: #f8f6f0; }
 

@@ -38,7 +38,19 @@ function getMaxZoom() {
 }
 
 function clampZoom(z) {
-  return Math.min(getMaxZoom(), Math.max(0.6, z));
+  return Math.min(getMaxZoom(), Math.max(1, z));
+}
+
+// Discrete zoom-button steps (1 / 1.5 / 2 / 2.5 / 3 ...), capped at the
+// catalog's admin-configured max zoom so a lower max_zoom (e.g. 1.5) still
+// produces a valid, non-empty step list. Pinch-zoom stays continuous (see
+// the pointermove handler below) - only the +/- buttons snap to these.
+function getZoomSteps() {
+  const max = getMaxZoom();
+  const steps = [1];
+  for (let s = 1.5; s < max - 0.001; s += 0.5) steps.push(Math.round(s * 100) / 100);
+  if (max > 1.001) steps.push(Math.round(max * 100) / 100);
+  return steps;
 }
 
 function chunkArray(arr, size) {
@@ -369,9 +381,15 @@ function getPageFlipSettings(mode) {
 // reaching PageFlip's listener, in the capture phase, before it can start
 // tracking a flip. The follow-up 'click' event is untouched and still
 // reaches our own data-goto/data-add-cart handling below.
-const INTERACTIVE_SELECTOR = 'button, a, input, [data-goto], [data-add-cart], [data-cover-download]';
+const INTERACTIVE_SELECTOR = 'button, a, input, select, textarea, label, [data-goto], [data-add-cart], [data-cover-download], [data-no-pan]';
+// Zoomed-in: every press on the book is a pan (or a tap on an interactive
+// element), never a flip attempt - so PageFlip's own mousedown/touchstart
+// listener (bound directly on this same element, see the vendor-bundle
+// comment near ensurePageFlipMode()) must never see it either. Stopping
+// propagation here, in the capture phase, keeps the event from ever
+// reaching that bubble-phase listener at all.
 function stopIfInteractive(e) {
-  if (e.target.closest(INTERACTIVE_SELECTOR)) e.stopPropagation();
+  if (e.target.closest(INTERACTIVE_SELECTOR) || state.zoom > 1.01) e.stopPropagation();
 }
 function handleBookFlipClick(e) {
   const gotoEl = e.target.closest('[data-goto]');
@@ -444,12 +462,28 @@ function goToPage(oneBasedIndex) {
   updateNavUI(clamped);
 }
 
+// Resetting zoom and flipping in the very same tick raced PageFlip's own
+// flip-start geometry measurement against the book-stage's own zoom-out
+// transition (still mid-transform at that instant), sometimes producing a
+// wrong/no-op flip. Letting the zoom-reset transition finish first (it
+// matches .book-stage's own 0.25s transition) keeps the two animations
+// sequential instead of visually and geometrically fighting each other.
 function next() {
-  pageFlip.flipNext();
+  if (state.zoom > 1.01) {
+    setZoom(1);
+    setTimeout(() => pageFlip.flipNext(), 260);
+  } else {
+    pageFlip.flipNext();
+  }
 }
 
 function prev() {
-  pageFlip.flipPrev();
+  if (state.zoom > 1.01) {
+    setZoom(1);
+    setTimeout(() => pageFlip.flipPrev(), 260);
+  } else {
+    pageFlip.flipPrev();
+  }
 }
 
 function first() {
@@ -599,15 +633,119 @@ function updateSoloCentering() {
   }, 80);
 }
 
+// Real-time pan limits, in viewport (client) coordinates, derived from the
+// CURRENT live geometry rather than any fixed formula - this stays correct
+// across zoom changes, solo-page centering (soloOffsetX), and PC vs mobile
+// layouts without needing to special-case any of them. "unpanned" below
+// means the box position with the current pan subtracted back out, i.e.
+// where the (zoomed) content would sit if pan were exactly 0 - a reference
+// frame that's stable regardless of what state.panX/panY currently are,
+// since CSS translate is a plain post-scale shift.
+function getPanBounds() {
+  const viewportRect = bookViewport.getBoundingClientRect();
+  const stageRect = bookStage.getBoundingClientRect();
+  const offsetX = state.soloOffsetX || 0;
+  const unpannedLeft = stageRect.left - state.panX - offsetX;
+  const unpannedTop = stageRect.top - state.panY;
+  const { width, height } = stageRect;
+
+  let minX, maxX;
+  if (width <= viewportRect.width) {
+    const centeredX = viewportRect.left + (viewportRect.width - width) / 2 - unpannedLeft - offsetX;
+    minX = maxX = centeredX;
+  } else {
+    minX = viewportRect.right - width - unpannedLeft - offsetX;
+    maxX = viewportRect.left - unpannedLeft - offsetX;
+  }
+
+  let minY, maxY;
+  if (height <= viewportRect.height) {
+    const centeredY = viewportRect.top + (viewportRect.height - height) / 2 - unpannedTop;
+    minY = maxY = centeredY;
+  } else {
+    minY = viewportRect.bottom - height - unpannedTop;
+    maxY = viewportRect.top - unpannedTop;
+  }
+
+  return { minX, maxX, minY, maxY };
+}
+
+function clampPanValues(panX, panY) {
+  const { minX, maxX, minY, maxY } = getPanBounds();
+  return {
+    panX: Math.min(maxX, Math.max(minX, panX)),
+    panY: Math.min(maxY, Math.max(minY, panY)),
+  };
+}
+
+function setZoomedClass() {
+  bookViewport.classList.toggle('zoomed', state.zoom > 1.01);
+}
+
 function setZoom(z, animate = true) {
   state.zoom = clampZoom(z);
   if (state.zoom <= 1.001) resetPan();
   bookStage.classList.toggle('panning', !animate);
   applyStageTransform();
+  setZoomedClass();
 }
 
-document.getElementById('btnZoomIn').addEventListener('click', () => setZoom(state.zoom + 0.25));
-document.getElementById('btnZoomOut').addEventListener('click', () => setZoom(state.zoom - 0.25));
+// Zooms to `newZoom` while keeping whatever content sits under
+// (anchorX, anchorY) - a screen/client point, e.g. the pinch midpoint or
+// the viewport center for button-zoom - visually fixed in place, instead of
+// always zooming around the stage's own CSS transform-origin (its center).
+// Measures the stage's real painted rect before and after the zoom change
+// rather than deriving it algebraically, since that stays correct
+// regardless of the solo-page centering offset or transform-origin.
+function zoomAtPoint(newZoom, anchorX, anchorY, animate = true) {
+  const before = bookStage.getBoundingClientRect();
+  const fx = before.width ? (anchorX - before.left) / before.width : 0.5;
+  const fy = before.height ? (anchorY - before.top) / before.height : 0.5;
+
+  state.zoom = clampZoom(newZoom);
+  bookStage.classList.toggle('panning', !animate);
+  applyStageTransform();
+
+  const after = bookStage.getBoundingClientRect();
+  state.panX += (anchorX - fx * after.width) - after.left;
+  state.panY += (anchorY - fy * after.height) - after.top;
+
+  if (state.zoom <= 1.001) {
+    resetPan();
+  } else {
+    const clamped = clampPanValues(state.panX, state.panY);
+    state.panX = clamped.panX;
+    state.panY = clamped.panY;
+  }
+  applyStageTransform();
+  setZoomedClass();
+}
+
+function stepZoomIn(anchorX, anchorY) {
+  const steps = getZoomSteps();
+  const nextStep = steps.find((s) => s > state.zoom + 0.01);
+  zoomAtPoint(nextStep === undefined ? 1 : nextStep, anchorX, anchorY);
+}
+
+function stepZoomOut(anchorX, anchorY) {
+  const steps = getZoomSteps();
+  const prevSteps = steps.filter((s) => s < state.zoom - 0.01);
+  zoomAtPoint(prevSteps.length ? prevSteps[prevSteps.length - 1] : 1, anchorX, anchorY);
+}
+
+function viewportCenter() {
+  const r = bookViewport.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+
+document.getElementById('btnZoomIn').addEventListener('click', () => {
+  const c = viewportCenter();
+  stepZoomIn(c.x, c.y);
+});
+document.getElementById('btnZoomOut').addEventListener('click', () => {
+  const c = viewportCenter();
+  stepZoomOut(c.x, c.y);
+});
 document.getElementById('btnZoomReset').addEventListener('click', () => setZoom(1));
 
 const activePointers = new Map();
@@ -622,6 +760,10 @@ function pointDistance(p1, p2) {
   return Math.hypot(p1.x - p2.x, p1.y - p2.y);
 }
 
+function pointMidpoint(p1, p2) {
+  return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+}
+
 bookViewport.addEventListener('pointerdown', (e) => {
   activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (activePointers.size === 1) {
@@ -629,8 +771,11 @@ bookViewport.addEventListener('pointerdown', (e) => {
       x: e.clientX, y: e.clientY, time: Date.now(),
       panX: state.panX, panY: state.panY, target: e.target,
     };
+    if (state.zoom > 1.01) bookViewport.classList.add('panning-active');
   } else if (activePointers.size === 2) {
     isPinching = true;
+    singlePointerStart = null;
+    bookViewport.classList.remove('panning-active');
     const pts = Array.from(activePointers.values());
     gestureStartDistance = pointDistance(pts[0], pts[1]) || 1;
     gestureStartZoom = state.zoom;
@@ -644,22 +789,28 @@ bookViewport.addEventListener('pointermove', (e) => {
   if (isPinching && activePointers.size === 2) {
     const pts = Array.from(activePointers.values());
     const dist = pointDistance(pts[0], pts[1]);
-    setZoom(gestureStartZoom * (dist / gestureStartDistance), false);
+    const mid = pointMidpoint(pts[0], pts[1]);
+    zoomAtPoint(gestureStartZoom * (dist / gestureStartDistance), mid.x, mid.y, false);
     e.preventDefault();
     return;
   }
 
   if (activePointers.size === 1 && singlePointerStart && state.zoom > 1.01) {
-    state.panX = singlePointerStart.panX + (e.clientX - singlePointerStart.x);
-    state.panY = singlePointerStart.panY + (e.clientY - singlePointerStart.y);
+    const rawX = singlePointerStart.panX + (e.clientX - singlePointerStart.x);
+    const rawY = singlePointerStart.panY + (e.clientY - singlePointerStart.y);
+    const clamped = clampPanValues(rawX, rawY);
+    state.panX = clamped.panX;
+    state.panY = clamped.panY;
     bookStage.classList.add('panning');
     applyStageTransform();
+    e.preventDefault();
   }
 });
 
 function endGesture(e) {
   activePointers.delete(e.pointerId);
   if (activePointers.size < 2) isPinching = false;
+  bookViewport.classList.remove('panning-active');
   if (activePointers.size > 0 || !singlePointerStart) return;
 
   const start = singlePointerStart;
@@ -673,7 +824,7 @@ function endGesture(e) {
     const now = Date.now();
     const isDoubleTap = lastTapPos && (now - lastTapTime) < 350 && pointDistance(lastTapPos, { x: e.clientX, y: e.clientY }) < 40;
     if (isDoubleTap) {
-      setZoom(state.zoom > 1.01 ? 1 : Math.min(2, getMaxZoom()));
+      zoomAtPoint(state.zoom > 1.01 ? 1 : Math.min(2, getMaxZoom()), e.clientX, e.clientY);
       lastTapTime = 0;
       lastTapPos = null;
       return;
