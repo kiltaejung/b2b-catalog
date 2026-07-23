@@ -153,6 +153,51 @@ html, body {
 .export-row { display: flex; align-items: center; margin-top: 1rem; }
 .result-count { color: var(--sheet-text); font-size: 0.85rem; opacity: 0.85; }
 
+.product-search-results {
+  margin-top: 0.5rem;
+  flex: 1;
+  overflow-y: auto;
+}
+.psr-category-header {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--sheet-text);
+  padding: 0.6rem 0.2rem 0.4rem;
+  border-top: 1px solid var(--sheet-border);
+}
+.psr-category-header:first-child { border-top: none; padding-top: 0.2rem; }
+.psr-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.2rem;
+  border-top: 1px solid var(--sheet-border);
+}
+.psr-category-header + .psr-item { border-top: none; }
+.psr-thumb {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: #f1f5f9;
+}
+.psr-info { flex: 1; min-width: 0; }
+.psr-name { font-size: 0.9rem; color: var(--sheet-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.psr-price { font-size: 0.9rem; font-weight: 700; color: var(--band); margin-top: 0.15rem; }
+.psr-page { font-size: 0.78rem; color: var(--sheet-text); opacity: 0.7; margin-top: 0.15rem; }
+.psr-go-btn {
+  flex: 0 0 auto;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--sheet-border);
+  border-radius: 8px;
+  background: none;
+  color: var(--sheet-text);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.psr-go-btn:hover { background: rgba(127,127,127,0.1); }
+
 .book-viewport {
   position: absolute;
   inset: var(--toolbar-h, 50px) 0 var(--bottom-h, 52px) 0;

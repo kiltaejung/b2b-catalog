@@ -74,6 +74,7 @@ function formatPrice(value) {
 function buildPages(catalog) {
   const pages = [];
   const categoryStartPage = {};
+  const searchIndex = [];
 
   pages.push({ type: 'cover' });
   const tocPageIndex = pages.length;
@@ -84,6 +85,10 @@ function buildPages(catalog) {
     const configuredSizes = catalog.pageLayout && catalog.pageLayout[catEntry.category];
     const chunks = chunkByLayout(catEntry.products, configuredSizes);
     chunks.forEach((chunk, chunkIdx) => {
+      const pageNumber = pages.length + 1;
+      chunk.products.forEach((p) => {
+        searchIndex.push({ product: p, category: catEntry.category, page: pageNumber });
+      });
       pages.push({
         type: 'categoryGrid',
         category: catEntry.category,
@@ -110,7 +115,7 @@ function buildPages(catalog) {
   }));
   pages[tocPageIndex].entries = tocEntries;
 
-  return { pages, tocEntries };
+  return { pages, tocEntries, searchIndex };
 }
 
 // A cover image is treated as the finished, fully-designed cover/back-cover
@@ -735,6 +740,67 @@ async function updateExportUI() {
   }
 }
 
+// Client-side product search results: unlike the count/export above (which
+// round-trips to the product API), this searches state.searchIndex - built
+// from the currently loaded catalog's own pages - since "which page is
+// this product on" is a catalog-layout concept the product API knows
+// nothing about.
+const productSearchResults = document.getElementById('productSearchResults');
+
+function matchesProductQuery(entry, q) {
+  const haystack = [entry.product.name, entry.product.brand, entry.product.productCode, entry.category]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(q);
+}
+
+function productSearchItemHtml(entry) {
+  const p = entry.product;
+  const img = p.croppedImageUrl || p.imageUrl;
+  return `
+    <div class="psr-item">
+      <img class="psr-thumb" src="${img}" onerror="this.src='/assets/no-image.svg'" alt="${escapeHtml(p.name)}" />
+      <div class="psr-info">
+        <div class="psr-name">${escapeHtml(p.name)}</div>
+        <div class="psr-price">${formatPrice(p.salePrice)}</div>
+        <div class="psr-page">${entry.page}페이지</div>
+      </div>
+      <button type="button" class="psr-go-btn" data-goto-page="${entry.page}">이동</button>
+    </div>`;
+}
+
+function renderProductSearchResults(query = '') {
+  const q = query.trim().toLowerCase();
+  const matches = state.searchIndex.filter((entry) => !q || matchesProductQuery(entry, q));
+
+  const grouped = new Map();
+  const ungrouped = [];
+  matches.forEach((entry) => {
+    if (!entry.category) { ungrouped.push(entry); return; }
+    if (!grouped.has(entry.category)) grouped.set(entry.category, []);
+    grouped.get(entry.category).push(entry);
+  });
+
+  const byPage = (entries) => entries.slice().sort((a, b) => a.page - b.page).map(productSearchItemHtml).join('');
+  const categoryOrder = state.catalog.categories.map((c) => c.category).filter((c) => grouped.has(c));
+
+  let html = categoryOrder.map((category) => {
+    const entries = grouped.get(category);
+    return `<div class="psr-category-header">${escapeHtml(category)} (${entries.length})</div>${byPage(entries)}`;
+  }).join('');
+  if (ungrouped.length) html += byPage(ungrouped);
+
+  productSearchResults.innerHTML = html || '<div class="no-results">검색 결과가 없습니다.</div>';
+}
+
+productSearchResults.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-goto-page]');
+  if (!el) return;
+  goToPage(Number(el.dataset.gotoPage));
+  closeSheet();
+});
+
 function triggerExport(queryString) {
   const params = new URLSearchParams(queryString);
   const title = state.catalog && (state.catalog.seasonName || state.catalog.mainTitle);
@@ -778,15 +844,23 @@ btnBudgetReset.addEventListener('click', () => {
   closeSheet();
 });
 
-document.getElementById('btnProductSearch').addEventListener('click', () => updateExportUI());
+document.getElementById('btnProductSearch').addEventListener('click', () => {
+  updateExportUI();
+  renderProductSearchResults(productSearchInput.value);
+});
+productSearchInput.addEventListener('input', () => renderProductSearchResults(productSearchInput.value));
 productSearchInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') updateExportUI();
 });
 document.getElementById('btnProductSearchReset').addEventListener('click', () => {
   productSearchInput.value = '';
   updateExportUI();
+  renderProductSearchResults('');
 });
-function handleProductSearchToggleClick() { openSheet(document.getElementById('productSearchSheet')); }
+function handleProductSearchToggleClick() {
+  openSheet(document.getElementById('productSearchSheet'));
+  renderProductSearchResults(productSearchInput.value);
+}
 document.getElementById('btnProductSearchToggle').addEventListener('click', handleProductSearchToggleClick);
 document.getElementById('btnProductSearchToggleMobile').addEventListener('click', handleProductSearchToggleClick);
 
@@ -1460,6 +1534,7 @@ async function init() {
     const built = buildPages(state.catalog);
     state.pages = built.pages;
     state.tocEntries = built.tocEntries;
+    state.searchIndex = built.searchIndex;
 
     syncLayout();
     const initialPage = Number(params.get('page')) || 1;

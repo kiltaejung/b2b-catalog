@@ -141,17 +141,21 @@
     </div>
   </div>
 
-  <div id="productSearchSheet" class="bottom-sheet">
+  <div id="productSearchSheet" class="bottom-sheet bottom-sheet-tall">
     <div class="sheet-handle"></div>
-    <h3>상품검색</h3>
+    <div class="sheet-header-row">
+      <h3>상품검색</h3>
+      <button class="icon-btn sheet-close-icon" type="button" data-close-sheet>✕</button>
+    </div>
     <div class="product-search-row">
-      <input type="text" id="productSearchInput" placeholder="상품명 / 상품코드 / 카테고리" autocomplete="off" />
+      <input type="text" id="productSearchInput" placeholder="상품명 / 브랜드 / 상품코드 / 카테고리" autocomplete="off" />
       <button id="btnProductSearch" type="button">조회</button>
       <button id="btnProductSearchReset" class="secondary" type="button">초기화</button>
     </div>
     <div class="export-row">
       <span id="resultCountText" class="result-count">조회 결과: 0개</span>
     </div>
+    <div id="productSearchResults" class="product-search-results"></div>
     <button id="btnExportExcel" class="sheet-close-btn" type="button">전체 상품 엑셀 다운로드</button>
   </div>
 

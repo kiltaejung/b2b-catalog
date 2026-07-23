@@ -30,7 +30,7 @@ function buildFilterClause({ search, category, minPrice, maxPrice }) {
 
   if (search) {
     params.push(`%${search}%`);
-    clauses.push(`(name ILIKE $${params.length} OR product_code ILIKE $${params.length} OR category ILIKE $${params.length})`);
+    clauses.push(`(name ILIKE $${params.length} OR brand ILIKE $${params.length} OR product_code ILIKE $${params.length} OR category ILIKE $${params.length})`);
   }
   if (category) {
     params.push(category);
