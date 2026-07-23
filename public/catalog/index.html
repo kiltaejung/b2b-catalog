@@ -65,6 +65,20 @@
     </button>
   </nav>
 
+  <!-- Mobile-only single-row bottom bar (PC keeps the 3 clusters above).
+       Order: thumbnail - recenter - search - prev - page - next - toc - zoom - more. -->
+  <nav id="mobileBottomBar" class="mobile-bottom-bar">
+    <button id="btnThumbnailMobile" class="mb-btn" type="button" aria-label="썸네일" title="썸네일"><span class="mb-icon">▦</span></button>
+    <button id="btnRecenterMobile" class="mb-btn" type="button" aria-label="중앙정렬" title="중앙정렬"><span class="mb-icon">⌖</span></button>
+    <button id="btnProductSearchToggleMobile" class="mb-btn" type="button" aria-label="상품검색" title="상품검색"><span class="mb-icon">🔎</span></button>
+    <button id="btnPrevMobile" class="mb-btn" type="button" title="이전 페이지">◀</button>
+    <div class="mb-page-indicator"><span id="pageCurrentTextMobile">1</span> / <span id="totalPagesMobile">1</span></div>
+    <button id="btnNextMobile" class="mb-btn" type="button" title="다음 페이지">▶</button>
+    <button id="btnTocMobile" class="mb-btn" type="button" aria-label="목차" title="목차"><span class="mb-icon">☰</span></button>
+    <button id="btnZoomToggleMobile" class="mb-btn" type="button" aria-label="확대" title="확대"><span class="mb-icon">🔍</span></button>
+    <button id="btnMoreMobile" class="mb-btn" type="button" aria-label="더보기" title="더보기"><span class="mb-icon">⋯</span></button>
+  </nav>
+
   <!-- Shared backdrop for bottom sheets -->
   <div id="sheetOverlay" class="sheet-overlay"></div>
 

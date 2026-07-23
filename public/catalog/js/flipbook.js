@@ -27,6 +27,8 @@ let bookFlipEl = document.getElementById('bookFlip');
 const bookStage = document.getElementById('bookStage');
 const pageCurrentText = document.getElementById('pageCurrentText');
 const totalPagesEl = document.getElementById('totalPages');
+const pageCurrentTextMobile = document.getElementById('pageCurrentTextMobile');
+const totalPagesElMobile = document.getElementById('totalPagesMobile');
 const loadingScreen = document.getElementById('loadingScreen');
 
 let pageFlip = null;
@@ -275,6 +277,8 @@ function updateNavUI(oneBasedPage) {
   const total = state.pages.length;
   pageCurrentText.textContent = oneBasedPage;
   totalPagesEl.textContent = total;
+  pageCurrentTextMobile.textContent = oneBasedPage;
+  totalPagesElMobile.textContent = total;
   resetPan();
   if (state.settings.autoFit) setZoom(1, false);
   updateSoloCentering();
@@ -455,6 +459,8 @@ document.getElementById('btnNext').addEventListener('click', next);
 document.getElementById('btnPrev').addEventListener('click', prev);
 document.getElementById('btnFirst').addEventListener('click', first);
 document.getElementById('btnLast').addEventListener('click', last);
+document.getElementById('btnNextMobile').addEventListener('click', next);
+document.getElementById('btnPrevMobile').addEventListener('click', prev);
 
 // ---------------------------------------------------------------------
 // Shared bottom-sheet / float-bar system
@@ -496,14 +502,18 @@ function toggleFloatBar(bar) {
 
 const zoomBar = document.getElementById('zoomBar');
 document.getElementById('btnZoomToggle').addEventListener('click', () => toggleFloatBar(zoomBar));
+document.getElementById('btnZoomToggleMobile').addEventListener('click', () => toggleFloatBar(zoomBar));
 
 document.getElementById('btnShare').addEventListener('click', () => {
   openSheet(document.getElementById('shareSheet'));
   document.getElementById('shareUrlInput').value = window.location.href;
   shareViaQr();
 });
-document.getElementById('btnMore').addEventListener('click', () => openSheet(document.getElementById('moreSheet')));
-document.getElementById('btnThumbnail').addEventListener('click', () => {
+function handleMoreClick() { openSheet(document.getElementById('moreSheet')); }
+document.getElementById('btnMore').addEventListener('click', handleMoreClick);
+document.getElementById('btnMoreMobile').addEventListener('click', handleMoreClick);
+
+function handleThumbnailClick() {
   if (getLayoutMode() === 'spread') {
     openSheet(document.getElementById('thumbnailFilmstripPopup'));
     renderThumbnailFilmstrip();
@@ -511,11 +521,16 @@ document.getElementById('btnThumbnail').addEventListener('click', () => {
     openSheet(document.getElementById('thumbnailSheet'));
     renderThumbnails();
   }
-});
-document.getElementById('btnToc').addEventListener('click', () => {
+}
+document.getElementById('btnThumbnail').addEventListener('click', handleThumbnailClick);
+document.getElementById('btnThumbnailMobile').addEventListener('click', handleThumbnailClick);
+
+function handleTocClick() {
   openSheet(document.getElementById('tocSheet'));
   renderTocPanel();
-});
+}
+document.getElementById('btnToc').addEventListener('click', handleTocClick);
+document.getElementById('btnTocMobile').addEventListener('click', handleTocClick);
 
 // ---------------------------------------------------------------------
 // Zoom + pan + pinch + double-tap. Page-turning itself (drag, swipe, edge
@@ -574,6 +589,7 @@ function setZoom(z, animate = true) {
 document.getElementById('btnZoomIn').addEventListener('click', () => setZoom(state.zoom + 0.25));
 document.getElementById('btnZoomOut').addEventListener('click', () => setZoom(state.zoom - 0.25));
 document.getElementById('btnZoomReset').addEventListener('click', () => setZoom(1));
+document.getElementById('btnRecenterMobile').addEventListener('click', () => setZoom(1));
 
 const activePointers = new Map();
 let singlePointerStart = null;
@@ -773,9 +789,9 @@ document.getElementById('btnProductSearchReset').addEventListener('click', () =>
   productSearchInput.value = '';
   updateExportUI();
 });
-document.getElementById('btnProductSearchToggle').addEventListener('click', () => {
-  openSheet(document.getElementById('productSearchSheet'));
-});
+function handleProductSearchToggleClick() { openSheet(document.getElementById('productSearchSheet')); }
+document.getElementById('btnProductSearchToggle').addEventListener('click', handleProductSearchToggleClick);
+document.getElementById('btnProductSearchToggleMobile').addEventListener('click', handleProductSearchToggleClick);
 
 // Cart
 function loadCart() {
@@ -1214,12 +1230,14 @@ function syncToolbarHeight() {
     const h = state.chromeHidden ? 0 : toolbar.offsetHeight;
     document.documentElement.style.setProperty('--toolbar-h', `${h}px`);
   }
-  // Measured from the actual pill (plus its fixed 6px offset from the
-  // viewport edge) instead of a hardcoded value, so shrinking the bottom
-  // cluster's CSS size (e.g. the PC-only compact styling) is automatically
-  // reflected here without needing a matching JS change.
-  const bottomCluster = document.querySelector('.bottom-cluster');
-  const bottomH = state.chromeHidden ? 0 : (bottomCluster ? bottomCluster.offsetHeight + 6 : 52);
+  // Measured from whichever bottom bar is actually visible at this
+  // breakpoint (the PC-only floating pill cluster, plus its fixed 6px
+  // offset from the viewport edge, vs the mobile-only edge-to-edge bar)
+  // instead of a hardcoded value, so shrinking either one's CSS size is
+  // automatically reflected here without needing a matching JS change.
+  const isSpread = getLayoutMode() === 'spread';
+  const bottomEl = document.querySelector(isSpread ? '.bottom-cluster' : '.mobile-bottom-bar');
+  const bottomH = state.chromeHidden ? 0 : (bottomEl ? bottomEl.offsetHeight + (isSpread ? 6 : 0) : 52);
   document.documentElement.style.setProperty('--bottom-h', `${bottomH}px`);
 }
 
@@ -1315,7 +1333,7 @@ syncLayout();
 // ---------------------------------------------------------------------
 const CHROME_IDLE_MS = 3000;
 const toolbarEl = document.querySelector('.toolbar');
-const chromeEls = [toolbarEl, ...document.querySelectorAll('.bottom-cluster')];
+const chromeEls = [toolbarEl, ...document.querySelectorAll('.bottom-cluster'), document.getElementById('mobileBottomBar')];
 let chromeIdleTimer = null;
 
 function isChromeBusy() {

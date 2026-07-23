@@ -484,6 +484,45 @@ html, body {
   .page-indicator, .zoom-level { font-size: 0.72rem; }
 }
 
+/* Mobile/tablet (non-spread): a single continuous full-width bottom bar
+   replaces the 3 floating pill clusters used on PC (see #mobileBottomBar
+   in index.html vs .bottom-cluster above) - minimal flat icons directly on
+   a dark bar, evenly spaced, with a >=40px touch target per button even
+   though the icons themselves render small. */
+.mobile-bottom-bar { display: none; }
+@media (max-width: 860px) {
+  .bottom-cluster { display: none; }
+  .mobile-bottom-bar {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.15rem;
+    background: var(--chrome-bg);
+    padding: 2px 0.3rem calc(2px + env(safe-area-inset-bottom));
+    z-index: 40;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .mobile-bottom-bar.chrome-hidden { transform: translateY(140%); opacity: 0; pointer-events: none; }
+  .mb-btn {
+    flex: 0 0 auto;
+    min-width: 40px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--chrome-text);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0;
+  }
+  .mb-icon { font-size: 1rem; line-height: 1; }
+  .mb-page-indicator { color: var(--chrome-text); font-size: 0.72rem; white-space: nowrap; padding: 0 0.15rem; }
+}
+
 /* Slim floating overlay bars (page nav slider / zoom controls) */
 .float-bar {
   position: fixed;
