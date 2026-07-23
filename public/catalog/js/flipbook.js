@@ -484,6 +484,15 @@ function closeSheet() {
   activeSheet = null;
   sheetOverlay.classList.remove('open');
   sheetOverlay.classList.remove('overlay-light');
+  // A sheet being open (esp. on mobile, with the keyboard up while typing in
+  // it) can leave the book sized against a stale/transient viewport reading
+  // that never got corrected — e.g. tapping 이동 in the price/product search
+  // results closed the sheet while a resize from the keyboard closing was
+  // still settling, and the book stayed shrunk into the top-left corner.
+  // Resyncing against the real, current viewport every time a sheet closes
+  // guarantees the book is correctly sized/centered once it's fully visible
+  // again, regardless of what state things were in while it was hidden.
+  syncLayout();
 }
 
 function openSheet(el) {
