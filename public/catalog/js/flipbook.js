@@ -483,6 +483,7 @@ function closeSheet() {
   if (activeSheet) activeSheet.classList.remove('open');
   activeSheet = null;
   sheetOverlay.classList.remove('open');
+  sheetOverlay.classList.remove('overlay-light');
 }
 
 function openSheet(el) {
@@ -490,10 +491,17 @@ function openSheet(el) {
   allSheets.forEach((s) => s.classList.remove('open'));
   el.classList.add('open');
   activeSheet = el;
+  // PC price-search is a small anchored popup, not a full bottom sheet, so
+  // it only needs a light scrim to stay legible against the catalog behind
+  // it rather than the heavier dimming a full-width sheet needs.
+  sheetOverlay.classList.toggle('overlay-light', el.id === 'priceSearchSheet' && getLayoutMode() === 'spread');
   sheetOverlay.classList.add('open');
 }
 
 sheetOverlay.addEventListener('click', closeSheet);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && activeSheet) closeSheet();
+});
 document.querySelectorAll('[data-close-sheet]').forEach((btn) => {
   btn.addEventListener('click', closeSheet);
 });

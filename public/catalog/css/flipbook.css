@@ -529,6 +529,30 @@ html, body {
   .page-indicator, .zoom-level { font-size: 0.72rem; }
 }
 
+/* PC: price-search is a small anchored popup near the top-center (below the
+   toolbar), not a full-width bottom sheet - mobile/tablet keep the sheet. */
+@media (min-width: 861px) {
+  #priceSearchSheet {
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    top: calc(var(--toolbar-h, 34px) + 10px);
+    transform: translateX(-50%);
+    width: 460px;
+    max-width: 92vw;
+    max-height: 190px;
+    border-radius: 12px;
+    padding: 0.9rem 1.1rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+  }
+  #priceSearchSheet .sheet-handle { display: none; }
+  #priceSearchSheet h3 { margin: 0 0 0.6rem; font-size: 1rem; }
+  #priceSearchSheet .budget-row input { min-height: 40px; box-sizing: border-box; }
+  #priceSearchSheet .sheet-actions-row button { min-height: 40px; box-sizing: border-box; }
+  #priceSearchSheet #btnBudgetSearch { order: 2; }
+  #priceSearchSheet #btnBudgetReset { order: 1; }
+}
+
 /* Mobile/tablet (non-spread): a single continuous full-width bottom bar
    replaces the 3 floating pill clusters used on PC (see #mobileBottomBar
    in index.html vs .bottom-cluster above) - minimal flat icons directly on
@@ -602,6 +626,7 @@ html, body {
   z-index: 50;
 }
 .sheet-overlay.open { display: block; }
+.sheet-overlay.overlay-light { background: rgba(0, 0, 0, 0.15); }
 
 .bottom-sheet {
   display: none;
