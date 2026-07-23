@@ -869,12 +869,16 @@ btnBudgetSearch.addEventListener('click', () => {
   }
 });
 
-btnBudgetReset.addEventListener('click', () => {
+function clearBudgetFilter() {
   budgetMin.value = '';
   budgetMax.value = '';
   budgetError.style.display = 'none';
   state.budgetFilter = null;
   updatePriceSearchLabel();
+}
+
+btnBudgetReset.addEventListener('click', () => {
+  clearBudgetFilter();
   updateExportUI();
   closeSheet();
 });
@@ -889,6 +893,10 @@ productSearchInput.addEventListener('keydown', (e) => {
 });
 document.getElementById('btnProductSearchReset').addEventListener('click', () => {
   productSearchInput.value = '';
+  // Also clears any budget filter that was carried over here from a price
+  // search 조회 - otherwise this looked broken (results stayed filtered by
+  // price even though the text query had been cleared).
+  clearBudgetFilter();
   updateExportUI();
   renderProductSearchResults('');
 });
