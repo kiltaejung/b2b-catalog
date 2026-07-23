@@ -523,14 +523,12 @@ function handleThumbnailClick() {
   }
 }
 document.getElementById('btnThumbnail').addEventListener('click', handleThumbnailClick);
-document.getElementById('btnThumbnailMobile').addEventListener('click', handleThumbnailClick);
 
 function handleTocClick() {
   openSheet(document.getElementById('tocSheet'));
   renderTocPanel();
 }
 document.getElementById('btnToc').addEventListener('click', handleTocClick);
-document.getElementById('btnTocMobile').addEventListener('click', handleTocClick);
 
 // ---------------------------------------------------------------------
 // Zoom + pan + pinch + double-tap. Page-turning itself (drag, swipe, edge
@@ -589,7 +587,6 @@ function setZoom(z, animate = true) {
 document.getElementById('btnZoomIn').addEventListener('click', () => setZoom(state.zoom + 0.25));
 document.getElementById('btnZoomOut').addEventListener('click', () => setZoom(state.zoom - 0.25));
 document.getElementById('btnZoomReset').addEventListener('click', () => setZoom(1));
-document.getElementById('btnRecenterMobile').addEventListener('click', () => setZoom(1));
 
 const activePointers = new Map();
 let singlePointerStart = null;
@@ -1203,23 +1200,52 @@ document.getElementById('thumbnailSearch').addEventListener('input', (e) => rend
 // ---------------------------------------------------------------------
 // TOC panel
 // ---------------------------------------------------------------------
-function renderTocPanel(filter = '') {
-  const list = document.getElementById('tocPanelList');
+function buildTocListHtml(filter = '') {
   const q = filter.trim().toLowerCase();
   const entries = state.tocEntries.filter((e) => !q || e.category.toLowerCase().includes(q));
-  list.innerHTML = entries.map((e) => `
+  return entries.map((e) => `
     <li data-goto-toc="${e.page}"><span>${escapeHtml(e.category)}</span><span>${e.page}</span></li>
   `).join('') || '<div class="no-results">검색 결과가 없습니다.</div>';
 }
 
-document.getElementById('tocPanelList').addEventListener('click', (e) => {
+function renderTocPanel(filter = '') {
+  document.getElementById('tocPanelList').innerHTML = buildTocListHtml(filter);
+}
+
+function handleTocListClick(e) {
   const el = e.target.closest('[data-goto-toc]');
   if (!el) return;
   goToPage(Number(el.dataset.gotoToc));
   closeSheet();
-});
+}
 
+document.getElementById('tocPanelList').addEventListener('click', handleTocListClick);
 document.getElementById('tocSearch').addEventListener('input', (e) => renderTocPanel(e.target.value));
+
+// ---------------------------------------------------------------------
+// Mobile-only: page finder popup merging the thumbnail grid and TOC list
+// behind tabs, since both exist purely to jump to a page quickly.
+// ---------------------------------------------------------------------
+function setPageFinderTab(tab) {
+  document.querySelectorAll('.pf-tab').forEach((btn) => btn.classList.toggle('active', btn.dataset.pfTab === tab));
+  const thumbPane = document.getElementById('pageFinderThumbnailPane');
+  const tocPane = document.getElementById('pageFinderTocList');
+  thumbPane.style.display = tab === 'thumbnail' ? '' : 'none';
+  tocPane.style.display = tab === 'toc' ? '' : 'none';
+  if (tab === 'thumbnail') thumbPane.innerHTML = buildThumbCardsHtml();
+  else tocPane.innerHTML = buildTocListHtml();
+}
+
+document.querySelectorAll('#pageFinderPopup .pf-tab').forEach((btn) => {
+  btn.addEventListener('click', () => setPageFinderTab(btn.dataset.pfTab));
+});
+document.getElementById('pageFinderThumbnailPane').addEventListener('click', handleThumbCardClick);
+document.getElementById('pageFinderTocList').addEventListener('click', handleTocListClick);
+
+document.getElementById('btnPageFinderMobile').addEventListener('click', () => {
+  openSheet(document.getElementById('pageFinderPopup'));
+  setPageFinderTab('thumbnail');
+});
 
 // Keep the book viewport clear of the toolbar/bottom clusters — both are
 // zeroed out instead while auto-hidden (see the chrome auto-hide block

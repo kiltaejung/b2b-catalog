@@ -66,16 +66,14 @@
   </nav>
 
   <!-- Mobile-only single-row bottom bar (PC keeps the 3 clusters above).
-       Order: thumbnail - recenter - search - prev - page - next - toc - zoom - more. -->
+       Order: page-finder (thumbnail+toc merged) - search - prev - page - next - zoom - more. -->
   <nav id="mobileBottomBar" class="mobile-bottom-bar">
-    <button id="btnThumbnailMobile" class="mb-btn" type="button" aria-label="썸네일" title="썸네일"><span class="mb-icon">▦</span></button>
-    <button id="btnRecenterMobile" class="mb-btn" type="button" aria-label="중앙정렬" title="중앙정렬"><span class="mb-icon">⌖</span></button>
+    <button id="btnPageFinderMobile" class="mb-btn" type="button" aria-label="페이지 찾기" title="페이지 찾기"><span class="mb-icon">▦</span></button>
     <button id="btnProductSearchToggleMobile" class="mb-btn" type="button" aria-label="상품검색" title="상품검색"><span class="mb-icon">🔎</span></button>
     <button id="btnPrevMobile" class="mb-btn" type="button" title="이전 페이지">◀</button>
     <div class="mb-page-indicator"><span id="pageCurrentTextMobile">1</span> / <span id="totalPagesMobile">1</span></div>
     <button id="btnNextMobile" class="mb-btn" type="button" title="다음 페이지">▶</button>
-    <button id="btnTocMobile" class="mb-btn" type="button" aria-label="목차" title="목차"><span class="mb-icon">☰</span></button>
-    <button id="btnZoomToggleMobile" class="mb-btn" type="button" aria-label="확대" title="확대"><span class="mb-icon">🔍</span></button>
+    <button id="btnZoomToggleMobile" class="mb-btn" type="button" aria-label="확대" title="확대"><span class="mb-icon">⊕</span></button>
     <button id="btnMoreMobile" class="mb-btn" type="button" aria-label="더보기" title="더보기"><span class="mb-icon">⋯</span></button>
   </nav>
 
@@ -199,6 +197,22 @@
       <button class="icon-btn sheet-close-icon" type="button" data-close-sheet>✕</button>
     </div>
     <ul id="tocPanelList" class="toc-panel-list"></ul>
+  </div>
+
+  <!-- Mobile-only: merges the thumbnail grid and TOC list into one popup
+       with tabs, since both exist to jump to a page quickly. -->
+  <div id="pageFinderPopup" class="bottom-sheet bottom-sheet-tall">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header-row">
+      <h3>페이지 찾기</h3>
+      <button class="icon-btn sheet-close-icon" type="button" data-close-sheet>✕</button>
+    </div>
+    <div class="page-finder-tabs">
+      <button type="button" class="pf-tab active" data-pf-tab="thumbnail">썸네일</button>
+      <button type="button" class="pf-tab" data-pf-tab="toc">목차</button>
+    </div>
+    <div id="pageFinderThumbnailPane" class="thumbnail-grid"></div>
+    <ul id="pageFinderTocList" class="toc-panel-list" style="display:none"></ul>
   </div>
 
   <aside id="cartDrawer" class="cart-drawer">

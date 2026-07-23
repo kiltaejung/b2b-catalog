@@ -736,6 +736,19 @@ html, body {
   color: var(--sheet-text);
 }
 
+.page-finder-tabs { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.pf-tab {
+  flex: 1;
+  padding: 0.55rem;
+  border: 1px solid var(--sheet-border);
+  border-radius: 8px;
+  background: none;
+  color: var(--sheet-text);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.pf-tab.active { background: var(--band); color: #fff; border-color: var(--band); }
+
 .thumbnail-grid {
   margin-top: 0.75rem;
   flex: 1;
