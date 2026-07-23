@@ -763,6 +763,15 @@ function matchesProductQuery(entry, q) {
   return haystack.includes(q);
 }
 
+function matchesBudgetFilter(entry) {
+  const budget = state.budgetFilter;
+  if (!budget) return true;
+  const price = Number(entry.product.salePrice);
+  if (budget.min !== null && price < budget.min) return false;
+  if (budget.max !== null && price > budget.max) return false;
+  return true;
+}
+
 function productSearchItemHtml(entry) {
   const p = entry.product;
   const img = p.croppedImageUrl || p.imageUrl;
@@ -780,7 +789,7 @@ function productSearchItemHtml(entry) {
 
 function renderProductSearchResults(query = '') {
   const q = query.trim().toLowerCase();
-  const matches = state.searchIndex.filter((entry) => !q || matchesProductQuery(entry, q));
+  const matches = state.searchIndex.filter((entry) => (!q || matchesProductQuery(entry, q)) && matchesBudgetFilter(entry));
 
   const grouped = new Map();
   const ungrouped = [];
@@ -839,7 +848,16 @@ btnBudgetSearch.addEventListener('click', () => {
   state.budgetFilter = (min !== null || max !== null) ? { min, max } : null;
   updatePriceSearchLabel();
   updateExportUI();
-  closeSheet();
+  // A real budget was entered — jump straight into the same grouped
+  // results-with-이동-button list the text search already uses, filtered by
+  // this price range, instead of just closing with nothing to show for it.
+  if (state.budgetFilter) {
+    productSearchInput.value = '';
+    openSheet(document.getElementById('productSearchSheet'));
+    renderProductSearchResults('');
+  } else {
+    closeSheet();
+  }
 });
 
 btnBudgetReset.addEventListener('click', () => {
