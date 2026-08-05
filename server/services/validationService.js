@@ -59,12 +59,20 @@ function validateRows(rows, existingCodes = new Set()) {
       rowErrors.push({ row: rowNumber, field: '상품구성', message: '상품구성은 필수입니다.' });
     }
 
-    if (!row.image_url) {
-      rowErrors.push({ row: rowNumber, field: '대표이미지 URL', message: '대표이미지 URL은 필수입니다.' });
-    } else if (!isValidUrl(row.image_url)) {
-      rowErrors.push({ row: rowNumber, field: '대표이미지 URL', message: '유효한 URL 형식이 아닙니다.' });
-    } else if (!hasImageExtension(row.image_url)) {
-      rowErrors.push({ row: rowNumber, field: '대표이미지 URL', message: 'JPG/PNG/WEBP 형식만 지원합니다.' });
+    // A row can supply its representative image either as a URL in this
+    // column, or as a picture pasted/inserted directly into the cell (see
+    // excelService's extractRowImages) - an embedded picture always wins
+    // when both are present, so the URL column isn't even format-checked
+    // in that case.
+    const embeddedImage = row._embeddedImage || null;
+    if (!row.image_url && !embeddedImage) {
+      rowErrors.push({ row: rowNumber, field: '대표이미지', message: '대표이미지가 없습니다. URL을 입력하거나 셀에 이미지를 삽입해주세요.' });
+    } else if (row.image_url && !embeddedImage) {
+      if (!isValidUrl(row.image_url)) {
+        rowErrors.push({ row: rowNumber, field: '대표이미지 URL', message: '유효한 URL 형식이 아닙니다.' });
+      } else if (!hasImageExtension(row.image_url)) {
+        rowErrors.push({ row: rowNumber, field: '대표이미지 URL', message: 'JPG/PNG/WEBP 형식만 지원합니다.' });
+      }
     }
 
     if (!isValidPrice(row.sale_price)) {
@@ -101,7 +109,8 @@ function validateRows(rows, existingCodes = new Set()) {
         product_code: String(row.product_code).trim(),
         name: String(row.name).trim(),
         brand: row.brand ? String(row.brand).trim() : null,
-        image_url: String(row.image_url).trim(),
+        image_url: row.image_url ? String(row.image_url).trim() : null,
+        embedded_image: embeddedImage,
         original_price: row.original_price !== undefined && row.original_price !== '' ? Number(row.original_price) : null,
         sale_price: Number(row.sale_price),
         composition: String(row.composition).trim(),

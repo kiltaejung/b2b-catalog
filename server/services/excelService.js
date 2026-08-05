@@ -46,6 +46,10 @@ async function buildTemplateBuffer() {
   sheet.columns = HEADERS.map((header) => ({ header, width: 20 }));
   sheet.addRow(EXAMPLE_ROW);
   sheet.getRow(1).font = { bold: true };
+
+  const imageColIndex = HEADERS.indexOf('대표이미지 URL') + 1;
+  sheet.getRow(1).getCell(imageColIndex).note = 'URL을 입력하는 대신, 이 열의 해당 행 셀에 이미지 파일(JPG/PNG)을 직접 붙여넣거나 삽입해도 됩니다.';
+
   return workbook.xlsx.writeBuffer();
 }
 
@@ -58,6 +62,27 @@ function cellText(cell) {
     if ('richText' in value) return value.richText.map((part) => part.text).join('');
   }
   return value;
+}
+
+const IMAGE_EXT_TO_MIME = { jpeg: 'image/jpeg', jpg: 'image/jpeg', png: 'image/png' };
+
+// Excel lets a picture be pasted/dropped directly into a cell instead of
+// typing a URL - it's stored as a separate "floating" drawing anchored to a
+// row/col position, not as cell content, so it has to be read via the
+// worksheet's own image list and matched back to a row by that anchor,
+// rather than through row.eachCell() like every other column.
+function extractRowImages(workbook, sheet) {
+  const map = new Map();
+  const media = (workbook.model && workbook.model.media) || [];
+  sheet.getImages().forEach((img) => {
+    const item = media.find((m) => String(m.index) === String(img.imageId));
+    if (!item || !item.buffer) return;
+    const mimeType = IMAGE_EXT_TO_MIME[String(item.extension || '').toLowerCase()];
+    if (!mimeType) return; // unsupported embedded format (e.g. gif/bmp) - falls back to the URL column
+    const rowNumber = Math.round(img.range.tl.nativeRow) + 1;
+    if (!map.has(rowNumber)) map.set(rowNumber, { buffer: item.buffer, mimeType });
+  });
+  return map;
 }
 
 async function parseWorkbookBuffer(buffer) {
@@ -73,6 +98,8 @@ async function parseWorkbookBuffer(buffer) {
     columnFields[colNumber] = HEADER_TO_FIELD[header];
   });
 
+  const rowImages = extractRowImages(workbook, sheet);
+
   const rows = [];
   sheet.eachRow((row, rowNumber) => {
     if (rowNumber === 1) return;
@@ -83,7 +110,8 @@ async function parseWorkbookBuffer(buffer) {
       const value = cellText(cell);
       mapped[field] = typeof value === 'string' ? value.trim() : value;
     });
-    if (Object.values(mapped).some((v) => v !== '' && v !== undefined && v !== null)) {
+    if (rowImages.has(rowNumber)) mapped._embeddedImage = rowImages.get(rowNumber);
+    if (mapped._embeddedImage || Object.values(mapped).some((v) => v !== '' && v !== undefined && v !== null)) {
       rows.push(mapped);
     }
   });
