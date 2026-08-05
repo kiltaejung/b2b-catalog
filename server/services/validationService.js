@@ -40,7 +40,11 @@ function validateRows(rows, existingCodes = new Set()) {
   const validRows = [];
 
   rows.forEach((row, index) => {
-    const rowNumber = index + 2; // header is row 1
+    // parseWorkbookBuffer stamps the real excel row number onto each row
+    // (the header no longer always sits at row 1 - see findHeaderRowNumber);
+    // callers that build rows by hand (e.g. the single-product form) don't
+    // set this, so fall back to the old fixed-header assumption for them.
+    const rowNumber = row._rowNumber || index + 2;
     const rowErrors = [];
 
     if (row.display_order === undefined || row.display_order === '' || Number.isNaN(Number(row.display_order))) {
