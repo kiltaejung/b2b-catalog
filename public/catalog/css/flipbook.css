@@ -1142,20 +1142,20 @@ html, body {
   /* Page height shrinks with viewport width at this breakpoint, so tiles
      stay 2-up (not 1-up) and are trimmed further to keep a full page
      inside the page box without triggering its internal scroll. */
-  .page { padding: 1rem; }
-  .category-banner { padding: 0.35rem 0.7rem; margin-bottom: 0.35rem; }
-  .category-banner h2 { font-size: 0.85rem; }
-  .product-grid { gap: 0.3rem; }
-  .product-grid-6 .product-tile { padding: 0.22rem; }
-  /* >=1.7cm tall (1cm ≈ 37.8px) - the minimum representative-image size
-     asked for - with a little headroom, trimmed from the banner/tile
-     chrome above and below it in this same pass. */
-  .product-grid-6 .product-tile img { height: 70px; }
-  .product-grid-6 .tile-code { display: none; }
-  .product-grid-6 .product-tile .tile-name { height: auto; margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .product-grid-6 .price-badge { font-size: 0.68rem; padding: 0.05rem 0.3rem; margin-top: 0.1rem; }
-  .product-grid-6 .tile-meta { display: block; font-size: 0.56rem; margin-top: 0.05rem; }
-  .product-grid-6 .product-tile .btn-add-cart { margin-top: 0.12rem; padding: 0.15rem; font-size: 0.64rem; }
+  .page { padding: 0.6rem 0.6rem 0.35rem; }
+  .category-banner { padding: 0.25rem 0.6rem; margin: -0.6rem -0.6rem 0.3rem -0.6rem; }
+  .category-banner h2 { font-size: 0.8rem; }
+  .product-grid { gap: 0.16rem; }
+  .product-grid-6 .product-tile { padding: 0.14rem; }
+  /* Image is the card's whole point - every other line on the card is
+     trimmed as far as it'll go so the image can claim the rest, per the
+     card priority order (image, price, name, 구성, button). */
+  .product-grid-6 .product-tile img { height: 118px; }
+  .product-grid-6 .tile-code { display: block; font-size: 0.56rem; padding: 0.06rem 0.24rem; }
+  .product-grid-6 .product-tile .tile-name { font-size: 0.62rem; height: auto; margin-top: 0.04rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .product-grid-6 .price-badge { font-size: 0.6rem; padding: 0.02rem 0.2rem; margin-top: 0.03rem; }
+  .product-grid-6 .tile-meta { display: block; font-size: 0.48rem; margin-top: 0.01rem; }
+  .product-grid-6 .product-tile .btn-add-cart { margin-top: 0.05rem; padding: 0.08rem; font-size: 0.56rem; }
 
   .product-grid-3 .product-tile { padding: 0.3rem; }
   .product-grid-4 .product-tile { padding: 0.3rem; }
@@ -1179,10 +1179,10 @@ html, body {
    620px compact tier is still a hair too tall once the page box itself
    gets this short. */
 @media (max-width: 370px) {
-  .product-grid-6 .product-tile img { height: 68px; }
-  .product-grid-6 .product-tile { padding: 0.18rem; }
-  .product-grid-6 .tile-meta { font-size: 0.52rem; margin-top: 0.02rem; }
-  .product-grid-6 .product-tile .btn-add-cart { margin-top: 0.08rem; padding: 0.1rem; font-size: 0.6rem; }
+  .product-grid-6 .product-tile img { height: 96px; }
+  .product-grid-6 .product-tile { padding: 0.1rem; }
+  .product-grid-6 .tile-meta { font-size: 0.44rem; margin-top: 0; }
+  .product-grid-6 .product-tile .btn-add-cart { margin-top: 0.03rem; padding: 0.06rem; font-size: 0.52rem; }
   .product-grid-3 .product-tile img { height: 96px; }
   .product-grid-4 .product-tile img { height: 96px; }
   .product-grid-3 .product-tile { padding: 0.22rem; }
@@ -1195,6 +1195,13 @@ html, body {
   .product-grid-4 .product-tile .btn-add-cart { margin-top: 0.15rem; padding: 0.15rem; font-size: 0.62rem; }
 }
 
+/* Genuinely tiny/old screens (~330px and below, e.g. iPhone 5/SE 1st-gen)
+   don't have quite enough height left over even at the 370px tier's own
+   6-product size. */
+@media (max-width: 330px) {
+  .product-grid-6 .product-tile img { height: 82px; }
+}
+
 /* Phone mode's page ratio is much taller than tabletSingle/spread's (see
    getPageFlipSettings()), so most phones in portrait have noticeably more
    vertical room per row than the compact tiers above were tuned for —
@@ -1204,13 +1211,13 @@ html, body {
    or a small old phone — still only has the compact tiers' amount of
    room regardless of how narrow it is. */
 @media (max-width: 480px) and (min-height: 700px) {
-  .product-grid-6 .product-tile { padding: 0.32rem; }
-  .product-grid-6 .product-tile img { height: 94px; }
+  .product-grid-6 .product-tile { padding: 0.16rem; }
+  .product-grid-6 .product-tile img { height: 122px; }
   .product-grid-6 .tile-code { display: block; font-size: 0.58rem; padding: 0.08rem 0.28rem; }
-  .product-grid-6 .product-tile .tile-name { font-size: 0.74rem; }
-  .product-grid-6 .price-badge { font-size: 0.72rem; padding: 0.1rem 0.4rem; margin-top: 0.18rem; }
-  .product-grid-6 .tile-meta { display: block; font-size: 0.62rem; }
-  .product-grid-6 .product-tile .btn-add-cart { margin-top: 0.22rem; padding: 0.22rem; font-size: 0.7rem; }
+  .product-grid-6 .product-tile .tile-name { font-size: 0.68rem; margin-top: 0.05rem; }
+  .product-grid-6 .price-badge { font-size: 0.64rem; padding: 0.04rem 0.25rem; margin-top: 0.05rem; }
+  .product-grid-6 .tile-meta { display: block; font-size: 0.54rem; margin-top: 0.02rem; }
+  .product-grid-6 .product-tile .btn-add-cart { margin-top: 0.1rem; padding: 0.12rem; font-size: 0.6rem; }
 
   .product-grid-3 .product-tile { padding: 0.3rem; }
   .product-grid-4 .product-tile { padding: 0.3rem; }
@@ -1234,6 +1241,19 @@ html, body {
 @media (max-width: 480px) and (min-height: 820px) {
   .product-grid-3 .product-tile img { height: 224px; }
   .product-grid-4 .product-tile img { height: 224px; }
+}
+
+/* A phone that's both tall (min-height:700 tier already applies) AND wide
+   enough (>=375px - excludes the narrow older/small-screen devices that
+   min-height:700's own base value is sized against) has extra width-driven
+   headroom the 340-370px-wide phones in that same height tier don't - the
+   6-product image can grow further still toward matching the 4-product
+   size at this same breakpoint. */
+@media (min-width: 375px) and (max-width: 480px) and (min-height: 700px) {
+  .product-grid-6 .product-tile img { height: 140px; }
+}
+@media (min-width: 375px) and (max-width: 480px) and (min-height: 820px) {
+  .product-grid-6 .product-tile img { height: 160px; }
 }
 
 /* The width just past SPREAD_BREAKPOINT (860) is a transitional dip: each
