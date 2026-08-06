@@ -3,6 +3,7 @@ require('express-async-errors');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
 
 const productRoutes = require('./routes/products');
 const catalogRoutes = require('./routes/catalogs');
@@ -42,6 +43,16 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      // Both upload routes register their file under the same field name
+      // ('file'), so the request path - not err.field - is what tells the
+      // two limits (excel vs. logo/product image) apart here.
+      const limitMb = req.path.startsWith('/api/products/upload') ? 50 : 3;
+      return res.status(400).json({ error: `파일 용량이 너무 큽니다. (최대 ${limitMb}MB까지 업로드할 수 있습니다.)` });
+    }
+    return res.status(400).json({ error: '파일 업로드에 실패했습니다. 파일을 확인해주세요.' });
+  }
   console.error(err);
   res.status(500).json({ error: err.message || '서버 오류가 발생했습니다.' });
 });

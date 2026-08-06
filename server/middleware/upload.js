@@ -2,9 +2,13 @@ const multer = require('multer');
 
 const storage = multer.memoryStorage();
 
+// Excel files can now carry embedded product photos (pasted directly into
+// cells) instead of just image URLs, so a bulk upload with many rows of
+// real photos is easily well past what a text-only spreadsheet ever was -
+// 10MB was sized for the old URL-only case and rejected real catalogs.
 const excelUpload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = [
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
