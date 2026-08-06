@@ -487,7 +487,12 @@ function computePhoneBox() {
   // visible as a thin dark line hugging the chrome (see sizeBookFlip()'s
   // matching margin=0 for single-page mode).
   const width = Math.round(Math.min(window.innerWidth * 0.98, 480));
-  const height = Math.round(Math.min(window.innerHeight - toolbarH - bottomH, 924));
+  // No height cap: any devices taller than the old 924px ceiling had that
+  // much real vertical room going completely unused, split by
+  // #bookViewport's flexbox centering into equal dead-space gaps above
+  // AND below the book - directly the top/bottom whitespace reported as
+  // wasted space that should have gone to the product grid instead.
+  const height = Math.round(window.innerHeight - toolbarH - bottomH);
   return { width, height };
 }
 
@@ -1896,7 +1901,15 @@ function sizeBookFlip() {
   // the chrome. Spread/PC mode keeps its margin since there the book sits
   // well clear of both bars either way (no such seam to create).
   const margin = state.chromeHidden ? 0 : (isSingle ? 0 : 10);
-  const maxH = Math.min(window.innerHeight - toolbarH - bottomH - margin, mode === 'phone' ? 924 : 860);
+  // Phone mode has no height cap of its own (matches computePhoneBox()) -
+  // a tall device otherwise hit this same 924px ceiling and left equal
+  // dead-space gaps above/below the book via #bookViewport's flexbox
+  // centering, exactly the top/bottom whitespace that should have gone to
+  // the product grid instead. tabletSingle/spread keep their 860 cap -
+  // not reported as affected, and out of scope for this mobile-only ask.
+  const maxH = mode === 'phone'
+    ? window.innerHeight - toolbarH - bottomH - margin
+    : Math.min(window.innerHeight - toolbarH - bottomH - margin, 860);
   // In spread mode the 1320 cap alone ignored how narrow the actual window
   // was just above SPREAD_BREAKPOINT (e.g. 900px wide): the requested width
   // came out wider than the viewport, got visually clamped by the parent,
@@ -1926,40 +1939,31 @@ function sizeBookFlip() {
 // default, but no fixed set of width/height breakpoints can account for
 // every real viewport - in particular, an in-app browser (KakaoTalk, etc.)
 // reserves its own top/bottom chrome on top of the phone's raw screen
-// size, by an amount CSS media queries have no way to see, which can leave
-// noticeably less real vertical room than any tested breakpoint assumed
-// and cut the last row of products off-screen. This measures the actual
-// rendered page box (same "real arithmetic instead of guessing" approach
-// sizeBookFlip() already uses for the book itself) and back-solves the
-// image height that makes every row actually fit, then overrides
-// whatever the CSS breakpoint set via an injected stylesheet.
+// size, by an amount CSS media queries have no way to see. This measures
+// the actual rendered page box (same "real arithmetic instead of
+// guessing" approach sizeBookFlip() already uses for the book itself) and
+// back-solves the image height that makes the page's own rows fill it
+// exactly, then applies that directly to that SAME page's own <img>
+// elements (inline style, not a shared stylesheet rule).
 //
-// PageFlip only ever gives real (non-zero) layout dimensions to pages it
-// has actually mounted into its live flip window - typically just the
-// current page and its immediate neighbors, not every page in the book -
-// so this can only ever measure whichever grid page(s) happen to be
-// active *right now*, not "the worst case across the whole catalog" in
-// one pass. To still guarantee no page overflows without the image
-// visibly resizing on every single flip, the applied height only ever
-// shrinks (never grows back) within a session: each call keeps the
-// tightest requirement seen so far per capacity, and only touches the
-// stylesheet when a newly-measured page actually needs less room than
-// what's already applied. A page with more room than the current value
-// is silently left alone - it already fits, so there's nothing to fix
-// and nothing worth risking a visible resize over. gridFitMinHeights is
-// reset (starting fresh from the CSS breakpoint defaults) only on a
-// genuine layout change - resize, orientation, spread/single switch -
-// via syncLayout(), never merely because the current page changed.
-let dynamicGridStyleEl = null;
-let gridFitMinHeights = {};
-
-// Core measurement pass, factored out so it can run against either the
-// live bookFlipEl (the reactive safety-net path) or an offscreen clone of
-// a page that hasn't been shown yet (see preFitPageForNav() below) -
-// both need the exact same per-grid arithmetic, just against a different
-// root element. Returns whether gridFitMinHeights actually changed.
-function measureGridFitFromContainer(container) {
-  let changed = false;
+// Earlier version of this kept one shared "tightest ever seen" minimum
+// per capacity in a global injected stylesheet, applying to every
+// .product-grid-N page at once - meant to guard against overflow without
+// a visible resize, but it also meant no page could ever be sized any
+// bigger than the single worst-case page anywhere in the catalog, even
+// when its own page had plenty of extra room to spare - exactly backwards
+// from "대표이미지 최대 확대" (make the image as large as this page's own
+// space allows), and the direct cause of a large empty gap below the
+// last row on any page shorter than that shared worst case.
+//
+// Now each page is measured and sized independently (grow or shrink, no
+// monotonic ratchet, no cross-page interference) - safe to do because
+// preFitPageForNav() below already computes and applies each page's own
+// correct size *before* it's ever shown, so there's still no visible pop
+// on arrival; this reactive pass is only a fallback for paths that don't
+// go through it (initial load, resize/orientation).
+function idealImgHeightsForContainer(container) {
+  const results = [];
   [{ capacity: 6, rows: 3 }, { capacity: 4, rows: 2 }, { capacity: 3, rows: 2 }].forEach(({ capacity, rows }) => {
     const grids = container.querySelectorAll(`.product-grid-${capacity}`);
     grids.forEach((grid) => {
@@ -1974,12 +1978,10 @@ function measureGridFitFromContainer(container) {
       // offsetHeight (not getBoundingClientRect()) throughout this
       // function deliberately - it reads the element's own layout box,
       // unaffected by the 3D rotateY/perspective transform PageFlip
-      // applies to a page while it's mid-flip. getBoundingClientRect()
+      // applies to a page while it's mid-flip; getBoundingClientRect()
       // reflects that transform, so measuring a page that's still
-      // visually curling mid-animation returned a squashed, wrong height
-      // - and since the result here only ever ratchets down (never back
-      // up) within a session, one bad transform-distorted reading would
-      // otherwise have permanently wedged the image far too small.
+      // visually curling mid-animation would return a squashed, wrong
+      // height.
       const pageHeight = page.offsetHeight;
       // Zero here means PageFlip hasn't mounted/sized this particular
       // page yet (see above) - not a real "zero room" case, so it must
@@ -2010,34 +2012,24 @@ function measureGridFitFromContainer(container) {
 
       const perRowBudget = availableForRows / rows;
       const targetImgHeight = Math.max(36, Math.floor(perRowBudget - chromeHeight));
-      if (gridFitMinHeights[capacity] === undefined || targetImgHeight < gridFitMinHeights[capacity]) {
-        gridFitMinHeights[capacity] = targetImgHeight;
-        changed = true;
-      }
+      results.push({ capacity, targetImgHeight });
     });
   });
-  return changed;
+  return results;
 }
 
-function applyGridFitStyle(changed) {
-  if (!changed) return;
-  const rules = Object.keys(gridFitMinHeights)
-    .map((capacity) => `.product-grid-${capacity} .product-tile img { height: ${gridFitMinHeights[capacity]}px !important; }`);
-  if (!rules.length) return;
-
-  if (!dynamicGridStyleEl) {
-    dynamicGridStyleEl = document.createElement('style');
-    dynamicGridStyleEl.id = 'dynamicGridFit';
-    document.head.appendChild(dynamicGridStyleEl);
-  }
-  dynamicGridStyleEl.textContent = rules.join('\n');
+function applyImgHeightsToContainer(container, results) {
+  results.forEach(({ capacity, targetImgHeight }) => {
+    container.querySelectorAll(`.product-grid-${capacity} .product-tile img`).forEach((img) => {
+      img.style.setProperty('height', `${targetImgHeight}px`, 'important');
+    });
+  });
 }
 
-function fitProductGridImages({ reset = false } = {}) {
+function fitProductGridImages() {
   if (getLayoutMode() === 'spread') return; // PC has its own fixed cm-based sizing, not this
   if (!bookFlipEl) return;
-  if (reset) gridFitMinHeights = {};
-  applyGridFitStyle(measureGridFitFromContainer(bookFlipEl));
+  applyImgHeightsToContainer(bookFlipEl, idealImgHeightsForContainer(bookFlipEl));
 }
 
 // In single-page (mobile/tablet) mode, PageFlip only ever gives real
@@ -2045,23 +2037,20 @@ function fitProductGridImages({ reset = false } = {}) {
 // page, including the very next/prev one, sits at display:none right up
 // until the flip actually lands on it (verified directly: at any moment
 // exactly one .page reports a non-zero offsetHeight). That meant
-// fitProductGridImages() could only ever discover a page needed a
-// *smaller* image than every page seen so far *after* it was already
-// visible - the reader would see it for a moment at the old (larger)
-// size, then watch it snap smaller once the reactive pass ran. Since a
-// revisited page's requirement was already known and never needs to
-// shrink again, this pop could only ever happen moving into page
-// territory not visited yet in the session - which on a catalog with
-// varied category-name/banner lengths is effectively every forward
-// flip, and never a backward one. That is the flicker reported as
-// "shaking only when moving right, never left".
+// fitProductGridImages() could only ever discover a page's correct size
+// *after* it was already visible - the reader would see it for a moment
+// at the wrong size, then watch it visibly snap once the reactive pass
+// ran.
 //
-// Fixed by pre-measuring the page we're about to navigate TO before
-// ever triggering the actual flip: its markup is rendered into an
-// offscreen clone sized to match the real (uniform, per the
-// sizeBookFlip()/vendor-lib comment above) page box, so the correct
-// final size is already applied by the time the page is ever shown -
-// in either direction.
+// Fixed by pre-measuring the page we're about to navigate TO before ever
+// triggering the actual flip: its markup is rendered into an offscreen
+// clone sized to match the real (uniform, per the sizeBookFlip()/vendor-
+// lib comment above) page box, and the resulting size is applied directly
+// to the REAL target page's own (still display:none, not yet visible)
+// <img> elements - matched by position, since buildPageElements() emits
+// .page divs in the same order as state.pages - so the correct final
+// size is already in place by the time the page is ever shown, in either
+// direction.
 let gridFitScratchEl = null;
 function preFitPageForNav(targetIndex) {
   if (getLayoutMode() === 'spread') return;
@@ -2086,23 +2075,27 @@ function preFitPageForNav(targetIndex) {
   clonedPage.style.height = `${height}px`;
   clonedPage.style.boxSizing = 'border-box';
 
-  applyGridFitStyle(measureGridFitFromContainer(gridFitScratchEl));
+  const results = idealImgHeightsForContainer(gridFitScratchEl);
   gridFitScratchEl.innerHTML = '';
+  if (!results.length) return;
+
+  const realPage = bookFlipEl.querySelectorAll('.page')[targetIndex];
+  if (realPage) applyImgHeightsToContainer(realPage, results);
 }
 // Retries across animation frames until at least one product-grid page has
 // actually been mounted (real, non-zero dimensions) into the live DOM -
 // loadFromHTML() finishes mounting pages asynchronously, so a fixed
 // one-or-two-frame delay could still run before that ever completes and
 // silently compute nothing.
-function scheduleGridFit(opts, attemptsLeft = 20) {
+function scheduleGridFit(attemptsLeft = 20) {
   requestAnimationFrame(() => {
     const grid = bookFlipEl && bookFlipEl.querySelector('.product-grid-6, .product-grid-4, .product-grid-3');
     const page = grid && grid.closest('.page');
     const ready = page && page.offsetHeight > 0;
     if (ready || attemptsLeft <= 0) {
-      fitProductGridImages(opts);
+      fitProductGridImages();
     } else {
-      scheduleGridFit(opts, attemptsLeft - 1);
+      scheduleGridFit(attemptsLeft - 1);
     }
   });
 }
@@ -2113,13 +2106,12 @@ function syncLayout() {
   ensurePageFlipMode();
   sizeBookFlip();
   if (pageFlip) updateSoloCentering();
-  // A genuine layout change (resize, orientation, spread/single switch)
-  // can make the previously-tightest page no longer be the tightest one
-  // (or make it fit fine now) - starting the min-height tracking over
-  // from the CSS breakpoint defaults here, rather than carrying forward
-  // whatever the old layout needed, is what lets the image grow back up
-  // again after e.g. rotating to a taller orientation.
-  scheduleGridFit({ reset: true });
+  // Only re-fits the currently visible page - any other page's inline
+  // sizing (possibly stale from before this layout change, e.g. a
+  // rotation) is harmless to leave alone, since preFitPageForNav()
+  // recomputes it fresh from the new dimensions the next time it's
+  // actually navigated to.
+  scheduleGridFit();
 }
 // On mobile, the on-screen keyboard opening/closing fires window resize
 // events too (innerHeight shrinks/grows), even though nothing about the
@@ -2148,24 +2140,17 @@ document.addEventListener('focusout', (e) => {
 syncLayout();
 
 // ---------------------------------------------------------------------
-// Auto-hide chrome: the toolbar and bottom clusters fade out after a few
-// seconds of no interaction so the book can grow into that space, and
-// reappear on the next tap/click. Hiding pauses (rather than cancels)
-// while a sheet, float-bar, or the cart drawer is open, since those all
-// count as "using a feature" and shouldn't disappear mid-use.
+// Chrome (top toolbar + bottom bars) visibility. Used to auto-hide after
+// a few idle seconds so the book could grow into that space, then
+// reappear on the next tap - dropped on request ("상단/하단 바 고정",
+// always-fixed top/bottom bars on every layout mode, not just PC). The
+// state/toggle plumbing (state.chromeHidden, applyChromeVisibility(),
+// showChrome()) stays in place since sizeBookFlip()/computePhoneBox()
+// elsewhere still read state.chromeHidden - it just never becomes true
+// anymore, so those always take their normal "chrome visible" branch.
 // ---------------------------------------------------------------------
-const CHROME_IDLE_MS = 3000;
 const toolbarEl = document.querySelector('.toolbar');
 const chromeEls = [toolbarEl, ...document.querySelectorAll('.bottom-cluster'), document.getElementById('mobileBottomBar')];
-let chromeIdleTimer = null;
-
-function isChromeBusy() {
-  return Boolean(
-    activeSheet
-    || allFloatBars.some((bar) => bar.classList.contains('open'))
-    || document.getElementById('cartDrawer').classList.contains('open')
-  );
-}
 
 function applyChromeVisibility() {
   chromeEls.forEach((el) => el.classList.toggle('chrome-hidden', state.chromeHidden));
@@ -2190,32 +2175,6 @@ function showChrome() {
     applyChromeVisibility();
   }
 }
-
-function hideChromeIfIdle() {
-  // PC (spread layout): top/bottom chrome stays fixed and never auto-hides.
-  if (getLayoutMode() === 'spread') return;
-  if (isChromeBusy()) {
-    scheduleChromeIdle();
-    return;
-  }
-  if (!state.chromeHidden) {
-    state.chromeHidden = true;
-    applyChromeVisibility();
-  }
-}
-
-function scheduleChromeIdle() {
-  clearTimeout(chromeIdleTimer);
-  chromeIdleTimer = setTimeout(hideChromeIfIdle, CHROME_IDLE_MS);
-}
-
-function registerChromeActivity() {
-  showChrome();
-  scheduleChromeIdle();
-}
-
-document.addEventListener('pointerdown', registerChromeActivity, { passive: true });
-registerChromeActivity();
 
 // Init
 async function init() {
