@@ -439,7 +439,17 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
 }
-.price-badge .original { color: #94a3b8; text-decoration: line-through; font-weight: 400; font-size: 0.68rem; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; }
+/* em, not rem - always a fixed fraction of .price-badge's OWN font-size,
+   whatever that happens to be at the current breakpoint/grid capacity,
+   instead of a fixed absolute size that has to be hand-matched against
+   every one of the many .price-badge breakpoint overrides below and can
+   silently end up bigger than 판매가 if one of them is ever missed (as
+   several were - .product-grid-6 alone had no breakpoint-specific
+   .original at all, so it kept using this rule's flat rem value while
+   .price-badge's own size swung both above AND below it across
+   breakpoints, occasionally leaving 소비자가 the same size as or bigger
+   than 판매가). */
+.price-badge .original { color: #94a3b8; text-decoration: line-through; font-weight: 400; font-size: 0.7em; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; }
 .price-badge .sale { flex-shrink: 0; }
 .tile-meta {
   margin-top: 0.1rem;
@@ -471,8 +481,6 @@ html, body {
 .product-grid-4 .product-tile .tile-name { font-size: 0.82rem; height: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.12rem; }
 .product-grid-3 .price-badge { font-size: 1.15rem; margin-top: 0.2rem; }
 .product-grid-4 .price-badge { font-size: 1.15rem; margin-top: 0.2rem; }
-.product-grid-3 .price-badge .original { font-size: 0.72rem; }
-.product-grid-4 .price-badge .original { font-size: 0.72rem; }
 .product-grid-3 .tile-meta { font-size: 0.68rem; margin-top: 0.1rem; }
 .product-grid-4 .tile-meta { font-size: 0.68rem; margin-top: 0.1rem; }
 .product-grid-3 .product-tile .btn-add-cart { margin-top: 0.18rem; padding: 0.2rem; font-size: 0.74rem; }
@@ -1286,8 +1294,6 @@ html, body {
   .product-grid-4 .product-tile .tile-name { font-size: 0.75rem; height: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .product-grid-3 .price-badge { font-size: 0.72rem; padding: 0.08rem 0.35rem; margin-top: 0.15rem; }
   .product-grid-4 .price-badge { font-size: 0.72rem; padding: 0.08rem 0.35rem; margin-top: 0.15rem; }
-  .product-grid-3 .price-badge .original { font-size: 0.62rem; }
-  .product-grid-4 .price-badge .original { font-size: 0.62rem; }
   .product-grid-3 .tile-meta { display: block; font-size: 0.62rem; margin-top: 0.05rem; }
   .product-grid-4 .tile-meta { display: block; font-size: 0.62rem; margin-top: 0.05rem; }
   .product-grid-3 .product-tile .btn-add-cart { margin-top: 0.2rem; padding: 0.2rem; font-size: 0.68rem; }
@@ -1402,8 +1408,6 @@ html, body {
   .product-grid-4 .product-tile .tile-name { font-size: 0.78rem; height: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .product-grid-3 .price-badge { font-size: 0.74rem; padding: 0.1rem 0.4rem; margin-top: 0.18rem; }
   .product-grid-4 .price-badge { font-size: 0.74rem; padding: 0.1rem 0.4rem; margin-top: 0.18rem; }
-  .product-grid-3 .price-badge .original { font-size: 0.64rem; }
-  .product-grid-4 .price-badge .original { font-size: 0.64rem; }
   .product-grid-3 .tile-meta { display: none; }
   .product-grid-4 .tile-meta { display: none; }
   .product-grid-3 .product-tile .btn-add-cart { margin-top: 0.22rem; padding: 0.22rem; font-size: 0.7rem; }
