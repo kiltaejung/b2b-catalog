@@ -83,6 +83,14 @@ function formatPrice(value) {
   return `${Number(value).toLocaleString()}원`;
 }
 
+// Catalog product tiles use a "₩34,900" prefix style instead of the
+// "34,900원" suffix style used everywhere else (search results, cart,
+// price-search label) - kept as its own formatter so this one tile's look
+// doesn't change formatting anywhere else in the app.
+function formatTilePrice(value) {
+  return `₩${Number(value).toLocaleString()}`;
+}
+
 function buildPages(catalog) {
   const pages = [];
   const categoryStartPage = {};
@@ -205,17 +213,17 @@ function pageHtml(pageData) {
           <div class="product-grid product-grid-${capacity}">
             ${pageData.products.map((p) => `
               <div class="product-tile">
+                ${p.productCode ? `<div class="tile-code">${escapeHtml(p.productCode)}</div>` : ''}
                 <div class="image-frame">
                   ${productImageHtml(p)}
-                  ${p.brand ? `<div class="brand-badge">${escapeHtml(p.brand)}</div>` : ''}
                   ${promoStampHtml(p.promoBadge)}
                 </div>
-                <div class="tile-name">${escapeHtml(p.name)}</div>
                 ${catalog.showPrice ? `
                   <div class="price-badge">
                     ${p.originalPrice ? `<span class="original">${formatPrice(p.originalPrice)}</span>` : ''}
-                    ${formatPrice(p.salePrice)}
+                    ${formatTilePrice(p.salePrice)}
                   </div>` : ''}
+                <div class="tile-name">${escapeHtml(p.name)}</div>
                 <div class="tile-meta">${escapeHtml([p.composition, p.features].filter(Boolean).join(' · '))}</div>
                 <button class="btn-add-cart" data-add-cart="${p.id}">견적 담기</button>
               </div>`).join('')}

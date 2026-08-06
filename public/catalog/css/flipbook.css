@@ -395,32 +395,25 @@ html, body {
   background: #fff;
 }
 .product-tile img { width: 100%; height: 148px; object-fit: contain; object-position: center; border-radius: 6px; background: #f1f5f9; }
-/* Overlaid on the image itself (like the promo stamp) rather than its own
-   line, so the brand tag no longer eats into the card's text budget —
-   the image is the priority element, not the badge. */
-.brand-badge {
-  position: absolute;
-  top: 6px;
-  left: 6px;
+/* Product code badge, its own line above the image (not overlaid on it). */
+.tile-code {
+  display: inline-block;
   background: var(--band);
   color: #fff;
-  font-size: 0.6rem;
-  padding: 0.08rem 0.3rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
   border-radius: 4px;
-  line-height: 1.4;
+  margin-bottom: 0.25rem;
 }
 .product-tile .tile-name { font-size: 0.75rem; font-weight: 600; line-height: 1.15; height: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.12rem; }
 .price-badge {
-  display: inline-block;
-  margin-top: 0.12rem;
-  background: var(--accent-soft);
+  margin-top: 0.2rem;
   color: var(--accent);
-  font-weight: 700;
-  font-size: 0.73rem;
-  padding: 0.06rem 0.35rem;
-  border-radius: 4px;
+  font-weight: 800;
+  font-size: 0.95rem;
 }
-.price-badge .original { color: #94a3b8; text-decoration: line-through; font-weight: 400; margin-right: 0.3rem; font-size: 0.64rem; }
+.price-badge .original { display: block; color: #94a3b8; text-decoration: line-through; font-weight: 400; font-size: 0.64rem; margin-bottom: 0.05rem; }
 .tile-meta {
   margin-top: 0.1rem;
   font-size: 0.63rem;
@@ -445,14 +438,14 @@ html, body {
 .product-grid-4 .product-tile { padding: 0.25rem; }
 .product-grid-3 .product-tile img { height: 260px; }
 .product-grid-4 .product-tile img { height: 260px; }
-.product-grid-3 .brand-badge { font-size: 0.7rem; padding: 0.12rem 0.4rem; }
-.product-grid-4 .brand-badge { font-size: 0.7rem; padding: 0.12rem 0.4rem; }
+.product-grid-3 .tile-code { font-size: 0.7rem; padding: 0.12rem 0.5rem; }
+.product-grid-4 .tile-code { font-size: 0.7rem; padding: 0.12rem 0.5rem; }
 .product-grid-3 .product-tile .tile-name { font-size: 0.82rem; height: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.12rem; }
 .product-grid-4 .product-tile .tile-name { font-size: 0.82rem; height: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.12rem; }
-.product-grid-3 .price-badge { font-size: 0.8rem; padding: 0.06rem 0.4rem; margin-top: 0.12rem; }
-.product-grid-4 .price-badge { font-size: 0.8rem; padding: 0.06rem 0.4rem; margin-top: 0.12rem; }
-.product-grid-3 .price-badge .original { font-size: 0.68rem; }
-.product-grid-4 .price-badge .original { font-size: 0.68rem; }
+.product-grid-3 .price-badge { font-size: 1.15rem; margin-top: 0.2rem; }
+.product-grid-4 .price-badge { font-size: 1.15rem; margin-top: 0.2rem; }
+.product-grid-3 .price-badge .original { font-size: 0.72rem; }
+.product-grid-4 .price-badge .original { font-size: 0.72rem; }
 .product-grid-3 .tile-meta { font-size: 0.68rem; margin-top: 0.1rem; }
 .product-grid-4 .tile-meta { font-size: 0.68rem; margin-top: 0.1rem; }
 .product-grid-3 .product-tile .btn-add-cart { margin-top: 0.18rem; padding: 0.2rem; font-size: 0.74rem; }
@@ -998,7 +991,7 @@ html, body {
   .product-grid { gap: 0.35rem; }
   .product-grid-6 .product-tile { padding: 0.3rem; }
   .product-grid-6 .product-tile img { height: 52px; }
-  .product-grid-6 .brand-badge { display: none; }
+  .product-grid-6 .tile-code { display: none; }
   .product-grid-6 .product-tile .tile-name { height: auto; margin-top: 0.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .product-grid-6 .price-badge { font-size: 0.7rem; padding: 0.08rem 0.35rem; margin-top: 0.15rem; }
   .product-grid-6 .tile-meta { display: none; }
@@ -1008,8 +1001,8 @@ html, body {
   .product-grid-4 .product-tile { padding: 0.3rem; }
   .product-grid-3 .product-tile img { height: 120px; }
   .product-grid-4 .product-tile img { height: 120px; }
-  .product-grid-3 .brand-badge { font-size: 0.62rem; padding: 0.1rem 0.35rem; }
-  .product-grid-4 .brand-badge { font-size: 0.62rem; padding: 0.1rem 0.35rem; }
+  .product-grid-3 .tile-code { font-size: 0.62rem; padding: 0.1rem 0.35rem; }
+  .product-grid-4 .tile-code { font-size: 0.62rem; padding: 0.1rem 0.35rem; }
   .product-grid-3 .product-tile .tile-name { font-size: 0.75rem; height: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .product-grid-4 .product-tile .tile-name { font-size: 0.75rem; height: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .product-grid-3 .price-badge { font-size: 0.72rem; padding: 0.08rem 0.35rem; margin-top: 0.15rem; }
@@ -1052,7 +1045,7 @@ html, body {
 @media (max-width: 480px) and (min-height: 700px) {
   .product-grid-6 .product-tile { padding: 0.32rem; }
   .product-grid-6 .product-tile img { height: 78px; }
-  .product-grid-6 .brand-badge { display: block; font-size: 0.58rem; padding: 0.08rem 0.28rem; }
+  .product-grid-6 .tile-code { display: block; font-size: 0.58rem; padding: 0.08rem 0.28rem; }
   .product-grid-6 .product-tile .tile-name { font-size: 0.74rem; }
   .product-grid-6 .price-badge { font-size: 0.72rem; padding: 0.1rem 0.4rem; margin-top: 0.18rem; }
   .product-grid-6 .tile-meta { display: block; font-size: 0.62rem; }
@@ -1062,8 +1055,8 @@ html, body {
   .product-grid-4 .product-tile { padding: 0.3rem; }
   .product-grid-3 .product-tile img { height: 168px; }
   .product-grid-4 .product-tile img { height: 168px; }
-  .product-grid-3 .brand-badge { font-size: 0.68rem; }
-  .product-grid-4 .brand-badge { font-size: 0.68rem; }
+  .product-grid-3 .tile-code { font-size: 0.68rem; }
+  .product-grid-4 .tile-code { font-size: 0.68rem; }
   .product-grid-3 .product-tile .tile-name { font-size: 0.8rem; margin-top: 0.1rem; }
   .product-grid-4 .product-tile .tile-name { font-size: 0.8rem; margin-top: 0.1rem; }
   .product-grid-3 .price-badge { font-size: 0.78rem; padding: 0.08rem 0.4rem; margin-top: 0.12rem; }
@@ -1093,7 +1086,7 @@ html, body {
   .product-grid { gap: 0.35rem; }
   .product-grid-6 .product-tile { padding: 0.3rem; }
   .product-grid-6 .product-tile img { height: 52px; }
-  .product-grid-6 .brand-badge { display: none; }
+  .product-grid-6 .tile-code { display: none; }
   .product-grid-6 .product-tile .tile-name { height: auto; margin-top: 0.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .product-grid-6 .price-badge { font-size: 0.7rem; padding: 0.08rem 0.35rem; margin-top: 0.15rem; }
   .product-grid-6 .tile-meta { display: none; }
@@ -1103,8 +1096,8 @@ html, body {
   .product-grid-4 .product-tile { padding: 0.35rem; }
   .product-grid-3 .product-tile img { height: 123px; }
   .product-grid-4 .product-tile img { height: 123px; }
-  .product-grid-3 .brand-badge { font-size: 0.65rem; padding: 0.1rem 0.35rem; margin: 0.25rem 0 0.1rem; }
-  .product-grid-4 .brand-badge { font-size: 0.65rem; padding: 0.1rem 0.35rem; margin: 0.25rem 0 0.1rem; }
+  .product-grid-3 .tile-code { font-size: 0.65rem; padding: 0.1rem 0.35rem; margin: 0.25rem 0 0.1rem; }
+  .product-grid-4 .tile-code { font-size: 0.65rem; padding: 0.1rem 0.35rem; margin: 0.25rem 0 0.1rem; }
   .product-grid-3 .product-tile .tile-name { font-size: 0.78rem; height: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .product-grid-4 .product-tile .tile-name { font-size: 0.78rem; height: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .product-grid-3 .price-badge { font-size: 0.74rem; padding: 0.1rem 0.4rem; margin-top: 0.18rem; }
