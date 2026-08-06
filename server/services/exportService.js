@@ -1,5 +1,6 @@
 const ExcelJS = require('exceljs');
 const { imageSize } = require('image-size');
+const { Jimp } = require('jimp');
 const { fetchImageBuffer } = require('./safeImageFetch');
 const pool = require('../config/db');
 
@@ -38,7 +39,33 @@ const THIN_BORDER = {
 function excelImageExtension(dimensions) {
   if (dimensions.type === 'jpg' || dimensions.type === 'jpeg') return 'jpeg';
   if (dimensions.type === 'png') return 'png';
-  return null; // exceljs cannot embed webp/other formats directly
+  return null; // exceljs can only embed jpeg/png — everything else needs converting first (see normalizeImageForExcel)
+}
+
+// exceljs can only embed jpeg/png, but product images can arrive in other
+// formats (bmp/gif/tiff from an admin-pasted screenshot or a scraped product
+// photo) — those used to be silently dropped ("이미지 없음"), which is why
+// some products had an image in the export and others, picked from the same
+// catalog, didn't. Jimp decodes anything exceljs can't embed directly and
+// re-encodes it to PNG, so the only remaining failure mode is a format Jimp
+// itself can't decode either (rare: e.g. animated webp).
+async function normalizeImageForExcel(buffer) {
+  try {
+    const dimensions = imageSize(buffer);
+    const extension = excelImageExtension(dimensions);
+    if (extension && dimensions.width && dimensions.height) {
+      return { buffer, extension, width: dimensions.width, height: dimensions.height };
+    }
+  } catch {
+    // imageSize() throws on formats it can't parse the header of — fall through to Jimp below.
+  }
+  try {
+    const image = await Jimp.read(buffer);
+    const pngBuffer = await image.getBuffer('image/png');
+    return { buffer: pngBuffer, extension: 'png', width: image.bitmap.width, height: image.bitmap.height };
+  } catch {
+    return null;
+  }
 }
 
 function todayStamp() {
@@ -87,6 +114,7 @@ async function fetchProductImageBuffer(p) {
 
 async function buildProductExportWorkbook(products, title) {
   const imageBuffers = await Promise.all(products.map((p) => fetchProductImageBuffer(p)));
+  const normalizedImages = await Promise.all(imageBuffers.map((buffer) => (buffer ? normalizeImageForExcel(buffer) : null)));
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'B2B Catalog System';
@@ -165,30 +193,33 @@ async function buildProductExportWorkbook(products, title) {
     row.getCell('salePrice').numFmt = '#,##0';
 
     const buffer = imageBuffers[index];
+    const normalized = normalizedImages[index];
     let embedded = false;
     if (buffer) {
       try {
-        const dimensions = imageSize(buffer);
-        const extension = excelImageExtension(dimensions);
-        if (extension && dimensions.width && dimensions.height) {
-          const scale = Math.min(IMAGE_BOX_PX / dimensions.width, IMAGE_BOX_PX / dimensions.height, 1);
-          const drawWidth = dimensions.width * scale;
-          const drawHeight = dimensions.height * scale;
+        if (normalized) {
+          const scale = Math.min(IMAGE_BOX_PX / normalized.width, IMAGE_BOX_PX / normalized.height, 1);
+          const drawWidth = normalized.width * scale;
+          const drawHeight = normalized.height * scale;
           const cellHeightPx = ROW_HEIGHT_POINTS * 1.333;
           const offsetXFraction = Math.max(0, (IMAGE_COL_WIDTH_PX - drawWidth) / 2 / IMAGE_COL_WIDTH_PX);
           const offsetYFraction = Math.max(0, (cellHeightPx - drawHeight) / 2 / cellHeightPx);
 
-          const imageId = workbook.addImage({ buffer, extension });
+          const imageId = workbook.addImage({ buffer: normalized.buffer, extension: normalized.extension });
           sheet.addImage(imageId, {
             tl: { col: 0 + offsetXFraction, row: (rowNumber - 1) + offsetYFraction },
             ext: { width: drawWidth, height: drawHeight },
             editAs: 'oneCell',
           });
           embedded = true;
+        } else {
+          console.warn(`[export] could not decode image for ${p.product_code}: ${p.cropped_image_url || p.image_url}`);
         }
-      } catch {
-        embedded = false;
+      } catch (err) {
+        console.warn(`[export] failed to embed image for ${p.product_code}:`, err.message);
       }
+    } else {
+      console.warn(`[export] could not fetch image for ${p.product_code}: ${p.cropped_image_url || p.image_url}`);
     }
     if (!embedded) {
       row.getCell('image').value = '이미지 없음';

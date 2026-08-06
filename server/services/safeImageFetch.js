@@ -47,22 +47,36 @@ async function isSafeImageUrl(urlString) {
   }
 }
 
+async function fetchImageBufferOnce(imageUrl) {
+  const res = await fetch(imageUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
+  if (!res.ok) return null;
+
+  const contentLength = Number(res.headers.get('content-length') || 0);
+  if (contentLength && contentLength > MAX_IMAGE_BYTES) return null;
+
+  const buffer = Buffer.from(await res.arrayBuffer());
+  if (buffer.byteLength > MAX_IMAGE_BYTES) return null;
+  return buffer;
+}
+
+// One retry on top of the single attempt this used to make: a bulk export
+// fetches every product's image back-to-back, and a single slow/flaky
+// response from an external host (not a real error, just a blip) used to
+// mean that one product silently lost its image for the whole export while
+// every other identical request that session succeeded fine — exactly the
+// "some have it, some don't" pattern reported.
 async function fetchImageBuffer(imageUrl) {
   if (!imageUrl) return null;
   if (!(await isSafeImageUrl(imageUrl))) return null;
 
   try {
-    const res = await fetch(imageUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
-    if (!res.ok) return null;
-
-    const contentLength = Number(res.headers.get('content-length') || 0);
-    if (contentLength && contentLength > MAX_IMAGE_BYTES) return null;
-
-    const buffer = Buffer.from(await res.arrayBuffer());
-    if (buffer.byteLength > MAX_IMAGE_BYTES) return null;
-    return buffer;
+    return await fetchImageBufferOnce(imageUrl);
   } catch {
-    return null;
+    try {
+      return await fetchImageBufferOnce(imageUrl);
+    } catch {
+      return null;
+    }
   }
 }
 

@@ -352,10 +352,8 @@ html, body {
   justify-content: space-between;
   padding: 0.6rem 0;
   border-bottom: 1px dashed var(--border);
-  cursor: pointer;
   font-size: 0.95rem;
 }
-.toc-list li:hover { color: var(--accent); }
 .toc-list .dots { flex: 1; margin: 0 0.5rem; border-bottom: 1px dotted #cbd5e1; }
 
 /* Category banner + grid */
@@ -985,19 +983,6 @@ html, body {
   color: var(--sheet-text);
 }
 
-.page-finder-tabs { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-.pf-tab {
-  flex: 1;
-  padding: 0.55rem;
-  border: 1px solid var(--sheet-border);
-  border-radius: 8px;
-  background: none;
-  color: var(--sheet-text);
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-.pf-tab.active { background: var(--band); color: #fff; border-color: var(--band); }
-
 .thumbnail-grid {
   margin-top: 0.75rem;
   flex: 1;
@@ -1054,6 +1039,41 @@ html, body {
 .toc-panel-list li:hover { background: rgba(127,127,127,0.08); }
 
 .print-only { display: none; }
+/* Real A4 box sizing kept OUTSIDE @media print (mm/cm units resolve the
+   same in any media) so the client-side PDF export (downloadPdf() in
+   flipbook.js, rasterizing each .print-page via html2canvas) sees the exact
+   same page geometry as an actual browser print — one definition instead of
+   duplicating it for both paths. #printContainer itself stays display:none
+   on screen (via .print-only above) except while either export path is
+   actively using it (.pdf-rendering below, or @media print itself).
+   One catalog page = one physical A4 sheet; the .page inside is centered
+   and letterboxed to its real 480:626 portrait ratio (see
+   getPageFlipSettings()) rather than stretched to A4's slightly different
+   ratio. */
+.print-page {
+  width: 210mm;
+  height: 297mm;
+  margin: 0;
+  padding: 1cm;
+  box-sizing: border-box;
+  background: #fffdf9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.print-page .page {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 100%;
+  aspect-ratio: 480 / 626;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+/* Used only while downloadPdf() is rasterizing pages off-screen — real
+   layout/paint requires the element not be display:none, but it must stay
+   out of the visible viewport and behind the loading toast the whole time. */
+.pdf-rendering { display: block !important; position: fixed; top: 0; left: -100000px; }
 @page {
   size: A4;
   margin: 0;
@@ -1067,33 +1087,8 @@ html, body {
   html, body { height: auto !important; overflow: visible !important; }
   body > *:not(.print-only) { display: none !important; }
   .print-only { display: block !important; }
-  /* One catalog page = one physical A4 sheet: fix each .print-page to the
-     exact A4 box (the @page rule above already zeroes the browser's own
-     margin) and center the .page inside it, letterboxed to the page's real
-     480:626 portrait ratio (see getPageFlipSettings()) rather than
-     stretched to A4's slightly different ratio. */
-  .print-page {
-    page-break-after: always;
-    break-after: page;
-    width: 210mm;
-    height: 297mm;
-    margin: 0;
-    padding: 1cm;
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-  }
+  .print-page { page-break-after: always; break-after: page; }
   .print-page:last-child { page-break-after: auto; }
-  .print-page .page {
-    width: 100% !important;
-    height: auto !important;
-    max-height: 100%;
-    aspect-ratio: 480 / 626;
-    box-shadow: none !important;
-    overflow: hidden !important;
-  }
 }
 
 /* Cart drawer */
@@ -1148,6 +1143,34 @@ html, body {
   font-size: 1rem;
 }
 .loading-screen.hidden { display: none; }
+
+.pdf-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 90px;
+  transform: translateX(-50%);
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1.1rem;
+  background: rgba(15, 23, 42, 0.92);
+  color: #fff;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+.pdf-toast[hidden] { display: none; }
+.pdf-toast-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: pdf-toast-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes pdf-toast-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 860px) {
   .cart-drawer { width: 100%; right: -100%; }

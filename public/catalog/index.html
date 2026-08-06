@@ -231,20 +231,15 @@
     <ul id="tocPanelList" class="toc-panel-list"></ul>
   </div>
 
-  <!-- Mobile-only: merges the thumbnail grid and TOC list into one popup
-       with tabs, since both exist to jump to a page quickly. -->
+  <!-- Mobile-only: TOC list to jump to a page quickly (썸네일 tab removed on
+       request - the TOC list alone covers "find a page fast" here). -->
   <div id="pageFinderPopup" class="bottom-sheet bottom-sheet-tall">
     <div class="sheet-handle"></div>
     <div class="sheet-header-row">
       <h3>페이지 찾기</h3>
       <button class="icon-btn sheet-close-icon" type="button" data-close-sheet>✕</button>
     </div>
-    <div class="page-finder-tabs">
-      <button type="button" class="pf-tab active" data-pf-tab="thumbnail">썸네일</button>
-      <button type="button" class="pf-tab" data-pf-tab="toc">목차</button>
-    </div>
-    <div id="pageFinderThumbnailPane" class="thumbnail-grid"></div>
-    <ul id="pageFinderTocList" class="toc-panel-list" style="display:none"></ul>
+    <ul id="pageFinderTocList" class="toc-panel-list"></ul>
   </div>
 
   <aside id="cartDrawer" class="cart-drawer">
@@ -266,6 +261,11 @@
   <div id="loadingScreen" class="loading-screen">카탈로그를 불러오는 중...</div>
 
   <div id="printContainer" class="print-only"></div>
+
+  <div id="pdfLoadingToast" class="pdf-toast" hidden>
+    <div class="pdf-toast-spinner"></div>
+    <span id="pdfToastText">PDF 생성 중입니다...</span>
+  </div>
 
   <script src="js/vendor/page-flip.browser.js"></script>
   <script src="js/flipbook.js"></script>

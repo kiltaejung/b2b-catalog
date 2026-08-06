@@ -309,12 +309,20 @@ function pageHtml(pageData) {
         </div>`;
 
     case 'toc':
+      // No data-goto here (unlike the standalone 목차/페이지찾기 panels' own TOC
+      // list, which still jump on tap) - this in-book page's full-width rows
+      // used to swallow taps intended as "just go to the next page" (the
+      // right-edge zone of a row is well within edge-tap-nav's own >75%
+      // trigger area), landing on a random category instead. The dedicated
+      // 목차 button already gives a reliable way to jump by category, so this
+      // page is just plain text/reading content like any other now - only
+      // edge-tap-nav and swipe move it.
       return `
         <div class="page">
           <div class="toc-title">목차</div>
           <ul class="toc-list">
             ${pageData.entries.map((e) => `
-              <li data-goto="${e.page}">
+              <li>
                 <span>${escapeHtml(e.category)}</span>
                 <span class="dots"></span>
                 <span>${e.page}</span>
@@ -329,7 +337,7 @@ function pageHtml(pageData) {
           <div class="category-banner">
             <h2>${escapeHtml(pageData.category)}${pageData.partTotal > 1 ? ` (${pageData.partIndex + 1}/${pageData.partTotal})` : ''}</h2>
           </div>
-          <div class="product-grid product-grid-${capacity}">
+          <div class="product-grid product-grid-${capacity}" data-category="${escapeHtml(pageData.category)}">
             ${pageData.products.map((p) => `
               <div class="product-tile">
                 <div class="image-frame">
@@ -552,7 +560,7 @@ function getPageFlipSettings(mode) {
 // reaching PageFlip's listener, in the capture phase, before it can start
 // tracking a flip. The follow-up 'click' event is untouched and still
 // reaches our own data-goto/data-add-cart handling below.
-const INTERACTIVE_SELECTOR = 'button, a, input, select, textarea, label, [data-goto], [data-add-cart], [data-cover-download], [data-no-pan]';
+const INTERACTIVE_SELECTOR = 'button, a, input, select, textarea, label, [data-add-cart], [data-cover-download], [data-no-pan]';
 // Zoomed-in: every press on the book is a pan (or a tap on an interactive
 // element), never a flip attempt - so PageFlip's own mousedown/touchstart
 // listener (bound directly on this same element, see the vendor-bundle
@@ -563,11 +571,6 @@ function stopIfInteractive(e) {
   if (e.target.closest(INTERACTIVE_SELECTOR) || state.zoom > 1.01) e.stopPropagation();
 }
 function handleBookFlipClick(e) {
-  const gotoEl = e.target.closest('[data-goto]');
-  if (gotoEl) {
-    goToPage(Number(gotoEl.dataset.goto));
-    return;
-  }
   const downloadEl = e.target.closest('[data-cover-download]');
   if (downloadEl) {
     triggerFullExport();
@@ -790,6 +793,17 @@ function closeSheet() {
   // guarantees the book is correctly sized/centered once it's fully visible
   // again, regardless of what state things were in while it was hidden.
   syncLayout();
+  // The immediate call above can itself still land mid-keyboard-close-
+  // animation (the resize event that WOULD have corrected it can arrive a
+  // beat later than this synchronous close/nav) and bake a too-small
+  // reading into both the book box and the shared grid-fit stylesheet —
+  // reported back as a search-result 이동 landing on a visibly shrunken
+  // page. A second, delayed resync (same 300ms the keyboard-close
+  // animation itself takes, matching the existing focusout listener's own
+  // delayed resync below) catches and corrects that after things have
+  // actually settled, self-healing regardless of exactly when the real
+  // resize event landed.
+  setTimeout(syncLayout, 300);
 }
 
 function openSheet(el) {
@@ -914,6 +928,14 @@ function updateSoloCentering() {
 // where the (zoomed) content would sit if pan were exactly 0 - a reference
 // frame that's stable regardless of what state.panX/panY currently are,
 // since CSS translate is a plain post-scale shift.
+// FREE_PAN_MARGIN adds slack on top of the strict "content edge meets
+// viewport edge" bound below on both axes - requested as "이동이 자유롭게"
+// (move around freely): the exact edge-to-edge bound is mathematically
+// correct but reads as unexpectedly restrictive to drag against,
+// especially the direction perpendicular to a corner the user just zoomed
+// into. Scaled off viewport size (not a fixed px value) so it stays
+// proportionally the same amount of "give" at any zoom/device size.
+const FREE_PAN_MARGIN_RATIO = 0.15;
 function getPanBounds() {
   const viewportRect = bookViewport.getBoundingClientRect();
   const stageRect = bookStage.getBoundingClientRect();
@@ -921,23 +943,31 @@ function getPanBounds() {
   const unpannedLeft = stageRect.left - state.panX - offsetX;
   const unpannedTop = stageRect.top - state.panY;
   const { width, height } = stageRect;
+  const marginX = viewportRect.width * FREE_PAN_MARGIN_RATIO;
+  const marginY = viewportRect.height * FREE_PAN_MARGIN_RATIO;
 
   let minX, maxX;
   if (width <= viewportRect.width) {
+    // Content doesn't overflow this axis at all - previously locked pan to
+    // a single centered value (no give whatsoever); a fixed margin instead
+    // lets the user still nudge it side to side rather than hitting a
+    // dead stop the instant they try.
     const centeredX = viewportRect.left + (viewportRect.width - width) / 2 - unpannedLeft - offsetX;
-    minX = maxX = centeredX;
+    minX = centeredX - marginX;
+    maxX = centeredX + marginX;
   } else {
-    minX = viewportRect.right - width - unpannedLeft - offsetX;
-    maxX = viewportRect.left - unpannedLeft - offsetX;
+    minX = viewportRect.right - width - unpannedLeft - offsetX - marginX;
+    maxX = viewportRect.left - unpannedLeft - offsetX + marginX;
   }
 
   let minY, maxY;
   if (height <= viewportRect.height) {
     const centeredY = viewportRect.top + (viewportRect.height - height) / 2 - unpannedTop;
-    minY = maxY = centeredY;
+    minY = centeredY - marginY;
+    maxY = centeredY + marginY;
   } else {
-    minY = viewportRect.bottom - height - unpannedTop;
-    maxY = viewportRect.top - unpannedTop;
+    minY = viewportRect.bottom - height - unpannedTop - marginY;
+    maxY = viewportRect.top - unpannedTop + marginY;
   }
 
   return { minX, maxX, minY, maxY };
@@ -1690,9 +1720,12 @@ document.querySelectorAll('#moreSheet [data-more]').forEach((btn) => {
       closeSheet();
       if (document.fullscreenElement) document.exitFullscreen();
       else document.documentElement.requestFullscreen();
-    } else if (action === 'pdf' || action === 'print') {
+    } else if (action === 'print') {
       closeSheet();
       triggerPrint();
+    } else if (action === 'pdf') {
+      closeSheet();
+      downloadPdf();
     }
   });
 });
@@ -1702,11 +1735,103 @@ function buildPrintContainer() {
   container.innerHTML = state.pages.map((pageData) => `
     <div class="print-page">${pageHtml(pageData)}</div>
   `).join('');
+  return container;
 }
 
 function triggerPrint() {
   buildPrintContainer();
   window.print();
+}
+
+// window.print() alone (the previous "다운로드 (PDF)" action, still what
+// "인쇄" uses above) isn't a real download - it's a request to the OS/
+// browser's own print dialog, and on mobile that dialog is unreliable
+// (some in-app/mobile browsers don't support it at all, silently doing
+// nothing - reported back as "다운로드가 안돼" / "아무런 변화 없이
+// 하염없이 기다려", no dialog, no error, no file). This instead rasterizes
+// each catalog page (the same #printContainer .print-page boxes the print
+// path builds - see the CSS comment on why their sizing works unconditionally,
+// not just inside @media print) into a real multi-page PDF client-side and
+// triggers an actual file download via jsPDF's own save() - works the same
+// way an <a download> link does, which is universally supported, instead of
+// depending on OS print-dialog integration that mobile browsers vary wildly on.
+let pdfLibsPromise = null;
+function loadPdfLibs() {
+  if (window.jspdf && window.html2canvas) return Promise.resolve();
+  if (!pdfLibsPromise) {
+    const loadScript = (src) => new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.crossOrigin = 'anonymous';
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.head.appendChild(script);
+    });
+    pdfLibsPromise = Promise.all([
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'),
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'),
+    ]);
+  }
+  return pdfLibsPromise;
+}
+
+function showPdfToast(text) {
+  const toast = document.getElementById('pdfLoadingToast');
+  document.getElementById('pdfToastText').textContent = text;
+  toast.hidden = false;
+}
+function hidePdfToast() {
+  document.getElementById('pdfLoadingToast').hidden = true;
+}
+
+// Waits for every <img> already in the DOM (both already-complete and
+// still-loading) to settle - a broken/never-resolving image (dead URL)
+// would otherwise hang this forever, so each one races its own 5s timeout
+// instead of failing the whole export.
+function waitForImages(container) {
+  const imgs = Array.from(container.querySelectorAll('img'));
+  return Promise.all(imgs.map((img) => {
+    if (img.complete) return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = () => resolve();
+      img.addEventListener('load', done, { once: true });
+      img.addEventListener('error', done, { once: true });
+      setTimeout(done, 5000);
+    });
+  }));
+}
+
+async function downloadPdf() {
+  showPdfToast('PDF 생성 중입니다...');
+  const container = buildPrintContainer();
+  container.classList.add('pdf-rendering');
+  try {
+    await loadPdfLibs();
+    await waitForImages(container);
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    const pageEls = Array.from(container.querySelectorAll('.print-page'));
+
+    for (let i = 0; i < pageEls.length; i += 1) {
+      showPdfToast(`PDF 생성 중입니다... (${i + 1}/${pageEls.length})`);
+      // eslint-disable-next-line no-await-in-loop
+      const canvas = await window.html2canvas(pageEls[i], { scale: 2, useCORS: true, backgroundColor: '#fffdf9' });
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+    }
+
+    const title = (state.catalog && (state.catalog.seasonName || state.catalog.mainTitle) || '카탈로그').replace(/[\\/:*?"<>|]/g, '');
+    pdf.save(`${title}.pdf`);
+  } catch (err) {
+    console.error('PDF export failed', err);
+    alert('PDF 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  } finally {
+    container.classList.remove('pdf-rendering');
+    container.innerHTML = '';
+    hidePdfToast();
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -1800,28 +1925,13 @@ document.getElementById('tocPanelList').addEventListener('click', handleTocListC
 document.getElementById('tocSearch').addEventListener('input', (e) => renderTocPanel(e.target.value));
 
 // ---------------------------------------------------------------------
-// Mobile-only: page finder popup merging the thumbnail grid and TOC list
-// behind tabs, since both exist purely to jump to a page quickly.
+// Mobile-only: page finder popup (TOC list only - see index.html comment).
 // ---------------------------------------------------------------------
-function setPageFinderTab(tab) {
-  document.querySelectorAll('.pf-tab').forEach((btn) => btn.classList.toggle('active', btn.dataset.pfTab === tab));
-  const thumbPane = document.getElementById('pageFinderThumbnailPane');
-  const tocPane = document.getElementById('pageFinderTocList');
-  thumbPane.style.display = tab === 'thumbnail' ? '' : 'none';
-  tocPane.style.display = tab === 'toc' ? '' : 'none';
-  if (tab === 'thumbnail') thumbPane.innerHTML = buildThumbCardsHtml();
-  else tocPane.innerHTML = buildTocListHtml();
-}
-
-document.querySelectorAll('#pageFinderPopup .pf-tab').forEach((btn) => {
-  btn.addEventListener('click', () => setPageFinderTab(btn.dataset.pfTab));
-});
-document.getElementById('pageFinderThumbnailPane').addEventListener('click', handleThumbCardClick);
 document.getElementById('pageFinderTocList').addEventListener('click', handleTocListClick);
 
 document.getElementById('btnPageFinderMobile').addEventListener('click', () => {
   openSheet(document.getElementById('pageFinderPopup'));
-  setPageFinderTab('thumbnail');
+  document.getElementById('pageFinderTocList').innerHTML = buildTocListHtml();
 });
 
 // Keep the book viewport clear of the toolbar/bottom clusters — both are
@@ -1956,13 +2066,22 @@ function sizeBookFlip() {
 //
 // This computes the correct middle ground: still one shared value per
 // capacity (so every page reads at the same, consistent, maximized size -
-// nothing ever looks like it shrinks moving between pages), but the value
-// itself is the true minimum needed across the WHOLE catalog, computed by
-// sweeping every page up front - not incrementally discovered as pages
-// happen to be visited, which is what made the old shrink-only version
-// under-fill everything (it started from an overly generous guess and
-// only ever found out a page needed less if that page was actually
-// visited that session).
+// nothing ever looks like it shrinks moving between pages), but scoped to
+// each CATEGORY rather than pooled across the entire catalog. A single
+// outlier page anywhere in a 40+ page real catalog (a long banner name, a
+// product with unusually long composition text) used to drag every other
+// unrelated category's images down to match it too - reported back as
+// "products became small" with a lot of unused blank space below the grid
+// on otherwise-roomy pages. Scoping the shared minimum per category keeps
+// that same worst-case protection for the one case flicker is actually
+// noticeable in practice - flipping through a multi-page run of the SAME
+// category - without needlessly capping every other category to it too.
+// The value itself is still the true minimum needed across all of that
+// category's own pages, computed by sweeping every page up front - not
+// incrementally discovered as pages happen to be visited, which is what
+// made an even earlier shrink-only version under-fill everything (it
+// started from an overly generous guess and only ever found out a page
+// needed less if that page was actually visited that session).
 function idealImgHeightForPage(container) {
   const results = [];
   [{ capacity: 6, rows: 3 }, { capacity: 4, rows: 2 }, { capacity: 3, rows: 2 }].forEach(({ capacity, rows }) => {
@@ -2009,10 +2128,17 @@ function idealImgHeightForPage(container) {
 
       const perRowBudget = availableForRows / rows;
       const targetImgHeight = Math.max(36, Math.floor(perRowBudget - chromeHeight));
-      results.push({ capacity, targetImgHeight });
+      results.push({ capacity, category: grid.dataset.category || '', targetImgHeight });
     });
   });
   return results;
+}
+
+// Escapes a category name for safe use inside a CSS attribute-selector
+// string (e.g. [data-category="..."]) - only quotes/backslashes can break
+// out of it, everything else is fine as-is.
+function cssAttrEscape(value) {
+  return String(value).replace(/["\\]/g, '\\$&');
 }
 
 let dynamicGridStyleEl = null;
@@ -2020,12 +2146,12 @@ let gridFitScratchEl = null;
 // Sweeps every page in the catalog through an offscreen clone (so it
 // works regardless of which pages PageFlip has actually mounted - see
 // idealImgHeightForPage()'s own comment on why that matters), keeping the
-// smallest (tightest) height genuinely needed per capacity across the
-// whole book, then applies that as one shared, catalog-wide stylesheet
-// rule. Run once up front (after the pages are built) and again on any
-// genuine layout change (resize/orientation/spread<->single) - never per
-// navigation, since the result no longer depends on which page is
-// currently showing.
+// smallest (tightest) height genuinely needed per category+capacity pair
+// across that category's own pages, then applies that as a set of shared,
+// per-category stylesheet rules. Run once up front (after the pages are
+// built) and again on any genuine layout change (resize/orientation/
+// spread<->single) - never per navigation, since the result no longer
+// depends on which page is currently showing.
 function fitProductGridImagesForCatalog() {
   if (getLayoutMode() === 'spread') return; // PC has its own fixed cm-based sizing, not this
   if (!bookFlipEl || !state.pages.length) return;
@@ -2041,7 +2167,7 @@ function fitProductGridImagesForCatalog() {
     document.body.appendChild(gridFitScratchEl);
   }
 
-  const mins = {};
+  const mins = {}; // key: "<category>::<capacity>" -> { category, capacity, height }
   state.pages.forEach((pageData) => {
     gridFitScratchEl.innerHTML = pageHtml(pageData);
     const clonedPage = gridFitScratchEl.firstElementChild;
@@ -2049,13 +2175,14 @@ function fitProductGridImagesForCatalog() {
     clonedPage.style.width = `${width}px`;
     clonedPage.style.height = `${height}px`;
     clonedPage.style.boxSizing = 'border-box';
-    idealImgHeightForPage(gridFitScratchEl).forEach(({ capacity, targetImgHeight }) => {
-      if (mins[capacity] === undefined || targetImgHeight < mins[capacity]) mins[capacity] = targetImgHeight;
+    idealImgHeightForPage(gridFitScratchEl).forEach(({ capacity, category, targetImgHeight }) => {
+      const key = `${category}::${capacity}`;
+      if (mins[key] === undefined || targetImgHeight < mins[key].height) mins[key] = { category, capacity, height: targetImgHeight };
     });
   });
   gridFitScratchEl.innerHTML = '';
 
-  const rules = Object.keys(mins).map((capacity) => `.product-grid-${capacity} .product-tile img { height: ${mins[capacity]}px !important; }`);
+  const rules = Object.values(mins).map(({ category, capacity, height: h }) => `.product-grid-${capacity}[data-category="${cssAttrEscape(category)}"] .product-tile img { height: ${h}px !important; }`);
   if (!rules.length) return;
   if (!dynamicGridStyleEl) {
     dynamicGridStyleEl = document.createElement('style');
