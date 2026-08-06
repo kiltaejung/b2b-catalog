@@ -513,6 +513,21 @@ function getPageFlipSettings(mode) {
       maxWidth: width,
       minHeight: Math.round(height * 0.6),
       maxHeight: height,
+      // PageFlip's own gesture-driven curl (click AND drag) is a real 3D
+      // perspective/rotateY animation running for the library's full
+      // flippingTime on every turn - fine on a desktop browser, but this is
+      // exactly what read as shake/flicker specifically in KakaoTalk's
+      // in-app WebView (confirmed by the user: identical link opens
+      // perfectly smooth in Chrome/Naver on the same device, only breaks
+      // inside KakaoTalk). Turning this off here means phone mode only
+      // ever changes pages through slideFlip()'s own plain translateX
+      // transition (see next()/prev()/goToPage() below) - real API calls
+      // like turnToPage() aren't gated by this setting, only PageFlip's
+      // internal pointer/mouse listeners are. Left on for spread/
+      // tabletSingle, which aren't in scope here (not reported as
+      // affected, and this is a big enough behavior change to keep
+      // contained to the one mode that's actually broken).
+      useMouseEvents: false,
     };
   }
   if (mode === 'tabletSingle') {
@@ -613,12 +628,57 @@ function ensurePageFlipMode() {
   settleFlipVisuals();
 }
 
+// Phone mode's replacement for PageFlip's own animated flip - see
+// useMouseEvents:false's comment in getPageFlipSettings() for why. A
+// plain translateX slide on bookFlipEl (not bookStage, which already
+// carries the separate pan/zoom/solo-centering transform from
+// applyStageTransform() - stacking a second transform source on the same
+// element would fight it): the outgoing page slides fully off-screen,
+// the actual page swap happens via turnToPage() (an instant, non-
+// animated jump) while nothing is visible to the user, then the new
+// page slides in from the opposite edge. Two plain 2D transforms and
+// nothing else - no perspective, no rotateY, no per-frame shadow-
+// gradient recompute - which is what a weak WebView struggles with.
+// setTimeout at each half rather than a 'transitionend' listener: the
+// duration is ours to set in the first place, and transitionend doesn't
+// reliably fire the same way across every WebView on an interrupted or
+// zero-delta transition.
+const MOBILE_SLIDE_MS = 200;
+let slideInProgress = false;
+function slideFlip(targetIndex, direction) {
+  if (slideInProgress) return;
+  slideInProgress = true;
+  const width = bookFlipEl.offsetWidth || 1;
+  bookFlipEl.style.transition = `transform ${MOBILE_SLIDE_MS}ms ease`;
+  bookFlipEl.style.transform = `translateX(${-direction * width}px)`;
+  setTimeout(() => {
+    pageFlip.turnToPage(targetIndex);
+    state.currentPageIndex = targetIndex;
+    updateNavUI(targetIndex + 1);
+    bookFlipEl.style.transition = 'none';
+    bookFlipEl.style.transform = `translateX(${direction * width}px)`;
+    void bookFlipEl.offsetWidth; // force reflow so the next line actually animates
+    bookFlipEl.style.transition = `transform ${MOBILE_SLIDE_MS}ms ease`;
+    bookFlipEl.style.transform = 'translateX(0)';
+    setTimeout(() => {
+      bookFlipEl.style.transition = '';
+      slideInProgress = false;
+      settleFlipVisuals();
+    }, MOBILE_SLIDE_MS);
+  }, MOBILE_SLIDE_MS);
+}
+
 function goToPage(oneBasedIndex) {
   const total = state.pages.length;
   const clamped = Math.min(Math.max(oneBasedIndex, 1), total);
-  preFitPageForNav(clamped - 1);
-  pageFlip.turnToPage(clamped - 1);
-  state.currentPageIndex = clamped - 1;
+  const targetIndex = clamped - 1;
+  preFitPageForNav(targetIndex);
+  if (getLayoutMode() === 'phone' && targetIndex !== state.currentPageIndex) {
+    slideFlip(targetIndex, targetIndex > state.currentPageIndex ? 1 : -1);
+    return;
+  }
+  pageFlip.turnToPage(targetIndex);
+  state.currentPageIndex = targetIndex;
   updateNavUI(clamped);
   // turnToPage() jumps directly rather than animating like flipNext()/
   // flipPrev(), so there's no 'changeState' -> 'read' transition to catch
@@ -632,8 +692,17 @@ function goToPage(oneBasedIndex) {
 // wrong/no-op flip. Letting the zoom-reset transition finish first (it
 // matches .book-stage's own 0.25s transition) keeps the two animations
 // sequential instead of visually and geometrically fighting each other.
+// Phone mode has no such race to begin with (slideFlip() doesn't touch
+// PageFlip's own geometry), so it resets zoom immediately instead.
 function next() {
-  preFitPageForNav(Math.min(state.currentPageIndex + 1, state.pages.length - 1));
+  const targetIndex = Math.min(state.currentPageIndex + 1, state.pages.length - 1);
+  if (targetIndex === state.currentPageIndex) return;
+  preFitPageForNav(targetIndex);
+  if (getLayoutMode() === 'phone') {
+    if (state.zoom > 1.01) setZoom(1);
+    slideFlip(targetIndex, 1);
+    return;
+  }
   if (state.zoom > 1.01) {
     setZoom(1);
     setTimeout(() => pageFlip.flipNext(), 260);
@@ -643,7 +712,14 @@ function next() {
 }
 
 function prev() {
-  preFitPageForNav(Math.max(state.currentPageIndex - 1, 0));
+  const targetIndex = Math.max(state.currentPageIndex - 1, 0);
+  if (targetIndex === state.currentPageIndex) return;
+  preFitPageForNav(targetIndex);
+  if (getLayoutMode() === 'phone') {
+    if (state.zoom > 1.01) setZoom(1);
+    slideFlip(targetIndex, -1);
+    return;
+  }
   if (state.zoom > 1.01) {
     setZoom(1);
     setTimeout(() => pageFlip.flipPrev(), 260);
@@ -993,7 +1069,9 @@ function endGesture(e) {
   singlePointerStart = null;
   bookStage.classList.remove('panning');
 
-  const dist = Math.hypot(e.clientX - start.x, e.clientY - start.y);
+  const dx = e.clientX - start.x;
+  const dy = e.clientY - start.y;
+  const dist = Math.hypot(dx, dy);
   const isTap = dist < 10;
 
   if (isTap) {
@@ -1007,6 +1085,18 @@ function endGesture(e) {
     }
     lastTapTime = now;
     lastTapPos = { x: e.clientX, y: e.clientY };
+    return;
+  }
+
+  // Swipe-to-flip for phone mode: PageFlip's own drag-to-curl is turned
+  // off there (useMouseEvents:false, see getPageFlipSettings()), so this
+  // is the only way a swipe gesture advances pages in that mode - a
+  // completed drag (pointerup, not a cancelled one) that's mostly
+  // horizontal and past a real-swipe threshold, same idea as any native
+  // carousel's swipe detection.
+  if (e.type === 'pointerup' && getLayoutMode() === 'phone' && state.zoom <= 1.01
+    && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    if (dx < 0) next(); else prev();
   }
 }
 bookViewport.addEventListener('pointerup', endGesture);
