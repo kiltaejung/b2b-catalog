@@ -1103,9 +1103,13 @@ html, body {
   .cart-drawer { width: 100%; right: -100%; }
   .float-bar { padding: 0.4rem 0.6rem; gap: 0.4rem; }
   .sheet-grid { grid-template-columns: repeat(2, 1fr); }
-  /* Mobile's own, smaller physical cap on the representative image - see
-     the PC cap on the base .product-tile img rule. */
-  .product-tile img { max-width: 3cm; max-height: 2cm; }
+  /* No physical size cap on mobile (unlike PC) - a fixed cm box shrinks a
+     tall/portrait product photo (object-fit:contain letterboxes to
+     whichever dimension the photo's own aspect ratio is tighter on) well
+     below the tile's actual available width, which is exactly backwards
+     from the goal here: fill as much of the card as the per-breakpoint
+     tiers below actually have room for. */
+  .product-tile img { max-width: none; }
 }
 
 @media (max-width: 480px) {
@@ -1201,7 +1205,7 @@ html, body {
    room regardless of how narrow it is. */
 @media (max-width: 480px) and (min-height: 700px) {
   .product-grid-6 .product-tile { padding: 0.32rem; }
-  .product-grid-6 .product-tile img { height: 78px; }
+  .product-grid-6 .product-tile img { height: 94px; }
   .product-grid-6 .tile-code { display: block; font-size: 0.58rem; padding: 0.08rem 0.28rem; }
   .product-grid-6 .product-tile .tile-name { font-size: 0.74rem; }
   .product-grid-6 .price-badge { font-size: 0.72rem; padding: 0.1rem 0.4rem; margin-top: 0.18rem; }
