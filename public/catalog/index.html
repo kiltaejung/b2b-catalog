@@ -8,15 +8,32 @@
 <script src="/config.js"></script>
 </head>
 <body>
-  <!-- KakaoTalk's in-app browser (a WebView, not the phone's real Chrome/
-       Safari) renders the page-flip's 3D curl animation noticeably janky -
-       shaking/flickering that doesn't happen in a real browser. Shown only
-       when detected (see openInExternalBrowser() in flipbook.js), offering
-       a one-tap way out via KakaoTalk's own external-open scheme. -->
-  <div id="kakaoInAppBanner" class="kakao-inapp-banner" hidden>
-    <span>카카오톡 인앱 브라우저에서는 페이지 넘김이 매끄럽지 않을 수 있어요.</span>
-    <button id="btnOpenExternalBrowser" type="button">다른 브라우저로 열기</button>
-    <button id="btnDismissKakaoBanner" type="button" aria-label="닫기" class="kakao-inapp-banner-close">✕</button>
+  <!-- KakaoTalk's in-app browser (a WebView inside the KakaoTalk app, not
+       the phone's real Chrome/Samsung Internet/Safari) renders the
+       page-flip's 3D curl animation visibly janky - shake/flicker that
+       doesn't happen in a real browser on the same device, and can't be
+       fixed from inside the page it's hosting. A full-screen gate (not a
+       small dismissible banner) blocking the catalog itself until the
+       visitor acts, effectively forcing the move to a real browser - but
+       the actual navigation only ever fires from this button's own click,
+       a direct user gesture, never automatically on page load. An
+       automatic attempt (assigning location.href, or an invisible iframe
+       pointed at the scheme) was tried first and dropped: verified via
+       Playwright that either one can leave the page's click handling
+       silently broken afterward (the browser treats the unhandled custom
+       scheme as a pending external-navigation decision that never
+       resolves) - trading "shaky but usable" for "frozen", which is worse
+       than doing nothing. The small "카카오톡에서 계속 보기" link is a
+       genuine escape hatch, not just decoration: some devices may not
+       carry the scheme's handler, and this can't be allowed to trap
+       anyone with literally no way to see the catalog at all. -->
+  <div id="kakaoInAppGate" class="kakao-inapp-gate" hidden>
+    <div class="kakao-inapp-gate-card">
+      <p>카카오톡 인앱 브라우저에서는 카탈로그 페이지 넘김이 매끄럽지 않아요.</p>
+      <p class="kakao-inapp-gate-sub">아래 버튼을 눌러 다른 브라우저로 열어주세요.</p>
+      <button id="btnOpenExternalBrowser" type="button">다른 브라우저로 열기</button>
+      <button id="btnDismissKakaoBanner" type="button" class="kakao-inapp-gate-continue">카카오톡에서 계속 보기</button>
+    </div>
   </div>
 
   <header class="toolbar">

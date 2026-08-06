@@ -743,52 +743,54 @@ html, body {
 .float-bar.open { display: flex; opacity: 1; transform: translateX(-50%) translateY(0); }
 .float-bar button { white-space: nowrap; flex-shrink: 0; }
 
-/* KakaoTalk in-app browser notice - a floating overlay like .float-bar
-   (not part of the fixed toolbar), so it needs no changes to the
-   --toolbar-h-driven book sizing math; it just sits below the toolbar
-   and can be dismissed without affecting layout. */
-.kakao-inapp-banner {
+/* KakaoTalk in-app browser gate - a full-screen overlay sitting above
+   everything else (toolbar included), not a small dismissible banner, so
+   the catalog itself stays hidden behind it until the visitor acts. Pure
+   overlay (not part of flow), so it needs no changes to the
+   --toolbar-h-driven book sizing math underneath. */
+.kakao-inapp-gate {
   position: fixed;
-  top: calc(var(--toolbar-h, 50px) + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 36;
+  inset: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: var(--chrome-bg);
-  color: var(--chrome-text);
-  border-radius: 10px;
-  padding: 0.5rem 0.7rem;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-  /* A fixed-position flex container has no width to lay children out
-     against unless one is given explicitly (it shrink-wraps by default) -
-     without this, the flex:1 text span below had nothing real to grow
-     into and some browsers resolved that circular sizing by collapsing
-     it to a sliver, wrapping the message one character per line. */
-  width: min(360px, calc(100vw - 24px));
-  font-size: 0.78rem;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(15, 23, 42, 0.96);
 }
-.kakao-inapp-banner[hidden] { display: none; }
-.kakao-inapp-banner span { flex: 1; min-width: 0; }
-.kakao-inapp-banner button {
-  white-space: nowrap;
-  flex-shrink: 0;
+.kakao-inapp-gate[hidden] { display: none; }
+.kakao-inapp-gate-card {
+  width: min(320px, 100%);
+  background: var(--chrome-solid);
+  color: var(--chrome-text);
+  border-radius: 14px;
+  padding: 1.5rem 1.25rem;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+}
+.kakao-inapp-gate-card p { margin: 0 0 0.4rem; font-size: 0.95rem; line-height: 1.4; }
+.kakao-inapp-gate-sub { color: var(--chrome-text-muted); font-size: 0.82rem !important; margin-bottom: 1.1rem !important; }
+.kakao-inapp-gate-card button {
+  display: block;
+  width: 100%;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 0.78rem;
 }
 #btnOpenExternalBrowser {
   background: var(--accent);
   color: #fff;
-  padding: 0.35rem 0.6rem;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.75rem;
+  margin-bottom: 0.6rem;
 }
-.kakao-inapp-banner-close {
+.kakao-inapp-gate-continue {
   background: transparent;
   color: var(--chrome-text-muted);
-  padding: 0.2rem 0.3rem;
+  font-size: 0.78rem;
+  padding: 0.4rem;
+  text-decoration: underline;
 }
 
 .page-indicator { color: var(--chrome-text); display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem; white-space: nowrap; padding: 0 0.2rem; }

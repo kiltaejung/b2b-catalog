@@ -36,28 +36,39 @@ const loadingScreen = document.getElementById('loadingScreen');
 // rendering of the page-flip's 3D curl animation is visibly janky
 // (shake/flicker) in a way that doesn't reproduce in a real browser on the
 // same device. Since this catalog is primarily shared and opened via
-// KakaoTalk links, that's not a rare edge case. Detected purely from the
-// UA string (KakaoTalk appends "KAKAOTALK" to it), offering a one-tap way
-// to reopen the same URL in the device's real default browser via
-// KakaoTalk's own documented scheme - no way to fix the WebView's
-// rendering from inside the page itself.
-(function setupKakaoInAppBanner() {
+// KakaoTalk links, that's not a rare edge case, and there's no way to fix
+// a WebView's own rendering from inside the page it's hosting - so this
+// gates the whole catalog behind a full-screen prompt (#kakaoInAppGate)
+// instead of a small dismissible banner, effectively forcing the move to
+// a real browser rather than just suggesting it.
+//
+// The scheme navigation only ever fires from the button's own click
+// handler - never automatically on page load. That was tried first (both
+// a direct location.href assignment and an invisible iframe pointed at
+// the scheme) and dropped: verified via Playwright that either one can
+// leave the page's click handling silently broken afterward once the
+// scheme goes unhandled (the browser appears to treat it as a pending
+// external-navigation decision that never resolves), trading "shaky but
+// usable" for "frozen" - worse than doing nothing. A real user tap is a
+// direct gesture the browser handles as a one-off action, not a
+// standing/ambiguous navigation state, so it doesn't carry that risk.
+(function setupKakaoInAppGate() {
   const isKakaoInApp = /KAKAOTALK/i.test(navigator.userAgent);
   if (!isKakaoInApp) return;
-  if (sessionStorage.getItem('kakaoBannerDismissed') === '1') return;
+  if (sessionStorage.getItem('kakaoGateDismissed') === '1') return;
 
-  const banner = document.getElementById('kakaoInAppBanner');
+  const gate = document.getElementById('kakaoInAppGate');
   const openBtn = document.getElementById('btnOpenExternalBrowser');
-  const closeBtn = document.getElementById('btnDismissKakaoBanner');
-  if (!banner || !openBtn || !closeBtn) return;
+  const continueBtn = document.getElementById('btnDismissKakaoBanner');
+  if (!gate || !openBtn || !continueBtn) return;
 
-  banner.hidden = false;
+  gate.hidden = false;
   openBtn.addEventListener('click', () => {
     window.location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(window.location.href)}`;
   });
-  closeBtn.addEventListener('click', () => {
-    banner.hidden = true;
-    sessionStorage.setItem('kakaoBannerDismissed', '1');
+  continueBtn.addEventListener('click', () => {
+    gate.hidden = true;
+    sessionStorage.setItem('kakaoGateDismissed', '1');
   });
 })();
 
