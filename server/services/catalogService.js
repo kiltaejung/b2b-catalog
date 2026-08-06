@@ -46,6 +46,33 @@ function buildSnapshot(products, categoryOrder) {
   }));
 }
 
+// catalogs.product_snapshot is a materialized copy of the products table,
+// built once at catalog create/save time (createCatalog/updateCatalog) -
+// deliberate, so a catalog's content stays stable even if products are
+// edited later. But nothing re-ran that build step when a product itself
+// changed (reordered, code/name/price edited, deleted, bulk-uploaded), so
+// an admin editing a product saw the live catalog keep showing the old
+// data indefinitely, with no obvious way to force a refresh short of
+// re-opening and re-saving the catalog's own edit form. Call this after
+// any product mutation to keep every catalog's snapshot in sync
+// automatically - every catalog is created from the *entire* products
+// table today (no admin UI ever passes a specific productIds subset), so
+// "refresh" here just means "rebuild from the current products table,
+// keeping each catalog's own saved category order."
+async function refreshCatalogSnapshots(dbClient) {
+  const { rows: products } = await dbClient.query('SELECT * FROM products');
+  const { rows: catalogs } = await dbClient.query('SELECT id, category_order FROM catalogs');
+  for (const catalog of catalogs) {
+    const resolvedOrder = resolveCategoryOrder(products, catalog.category_order);
+    const snapshot = buildSnapshot(products, resolvedOrder);
+    // eslint-disable-next-line no-await-in-loop
+    await dbClient.query(
+      'UPDATE catalogs SET category_order=$1, product_snapshot=$2, updated_at=now() WHERE id=$3',
+      [JSON.stringify(resolvedOrder), JSON.stringify(snapshot), catalog.id]
+    );
+  }
+}
+
 function toViewModel(catalogRow) {
   return {
     id: catalogRow.id,
@@ -64,4 +91,4 @@ function toViewModel(catalogRow) {
   };
 }
 
-module.exports = { resolveCategoryOrder, buildSnapshot, toViewModel };
+module.exports = { resolveCategoryOrder, buildSnapshot, toViewModel, refreshCatalogSnapshots };

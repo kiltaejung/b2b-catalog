@@ -3,6 +3,7 @@ const { buildTemplateBuffer, parseWorkbookBuffer } = require('../services/excelS
 const { validateRows } = require('../services/validationService');
 const { buildProductExportWorkbook, buildExportFilename, buildExportFilenameAscii } = require('../services/exportService');
 const { autoCropProductImage, cropBuffer } = require('../services/imageCropService');
+const { refreshCatalogSnapshots } = require('../services/catalogService');
 
 // Registration no longer requires an image up front - a row/product with
 // neither a URL nor an embedded picture still saves, using this in place of
@@ -145,6 +146,7 @@ async function createProduct(req, res) {
         p.composition, p.packaging, p.origin, p.tax_type, p.features, p.description, p.shipping_info, p.promo_badge,
         croppedImageUrl]
     );
+    await refreshCatalogSnapshots(pool);
     res.status(201).json({ product: rows[0] });
   } catch (err) {
     if (err.code === '23505') {
@@ -183,6 +185,7 @@ async function updateProduct(req, res) {
       croppedImageUrl, imageChanged, req.params.id]
   );
   if (!rows.length) return res.status(404).json({ error: '상품을 찾을 수 없습니다.' });
+  await refreshCatalogSnapshots(pool);
   res.json({ product: rows[0] });
 }
 
@@ -209,12 +212,14 @@ async function updateImageAdjust(req, res) {
       clamp(offsetY, -IMAGE_OFFSET_MAX, IMAGE_OFFSET_MAX), req.params.id]
   );
   if (!rows.length) return res.status(404).json({ error: '상품을 찾을 수 없습니다.' });
+  await refreshCatalogSnapshots(pool);
   res.json({ product: rows[0] });
 }
 
 async function deleteProduct(req, res) {
   const { rowCount } = await pool.query('DELETE FROM products WHERE id = $1', [req.params.id]);
   if (!rowCount) return res.status(404).json({ error: '상품을 찾을 수 없습니다.' });
+  await refreshCatalogSnapshots(pool);
   res.status(204).end();
 }
 
@@ -325,6 +330,7 @@ async function uploadProducts(req, res) {
         inserted += 1;
       }
     }
+    await refreshCatalogSnapshots(client);
     await client.query('COMMIT');
     res.json({ inserted, updated, total: validRows.length });
   } catch (err) {
