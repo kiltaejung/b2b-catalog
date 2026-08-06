@@ -1085,6 +1085,21 @@ function endGesture(e) {
     }
     lastTapTime = now;
     lastTapPos = { x: e.clientX, y: e.clientY };
+
+    // Edge-tap navigation for phone mode: tapping the left/right margin
+    // of the page itself (not any interactive element in it) turns the
+    // page, the classic e-reader/flipbook affordance - matches the same
+    // scope as swipe-to-flip above (native PageFlip click-to-flip is off
+    // there too). Excludes the middle ~50% of the width as a dead zone
+    // so it doesn't fight normal reading or tapping a product tile's own
+    // 견적담기 button, and excludes interactive elements outright via the
+    // same INTERACTIVE_SELECTOR the pan/flip gesture gating already uses.
+    if (getLayoutMode() === 'phone' && state.zoom <= 1.01 && !start.target.closest(INTERACTIVE_SELECTOR)) {
+      const rect = bookViewport.getBoundingClientRect();
+      const relX = (e.clientX - rect.left) / rect.width;
+      if (relX < 0.25) prev();
+      else if (relX > 0.75) next();
+    }
     return;
   }
 
