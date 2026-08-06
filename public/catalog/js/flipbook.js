@@ -629,42 +629,62 @@ function ensurePageFlipMode() {
 }
 
 // Phone mode's replacement for PageFlip's own animated flip - see
-// useMouseEvents:false's comment in getPageFlipSettings() for why. A
-// plain translateX slide on bookFlipEl (not bookStage, which already
-// carries the separate pan/zoom/solo-centering transform from
-// applyStageTransform() - stacking a second transform source on the same
-// element would fight it): the outgoing page slides fully off-screen,
-// the actual page swap happens via turnToPage() (an instant, non-
-// animated jump) while nothing is visible to the user, then the new
-// page slides in from the opposite edge. Two plain 2D transforms and
-// nothing else - no perspective, no rotateY, no per-frame shadow-
-// gradient recompute - which is what a weak WebView struggles with.
-// setTimeout at each half rather than a 'transitionend' listener: the
-// duration is ours to set in the first place, and transitionend doesn't
-// reliably fire the same way across every WebView on an interrupted or
-// zero-delta transition.
-const MOBILE_SLIDE_MS = 200;
+// useMouseEvents:false's comment in getPageFlipSettings() for why.
+//
+// First version of this (still true of the two plain translateX moves
+// below, just not how they were sequenced) slid the outgoing page fully
+// off first, swapped content in an instant non-animated jump while
+// nothing was visible, then slid the new page in from the other edge -
+// two separate fast motions with a hard cut in between. Reported back as
+// "too fast, disorienting" - the real problem wasn't the speed so much
+// as that cut: two quick animations plus a teleport reads as jarring no
+// matter how long each half lasts.
+//
+// This version instead renders the INCOMING page's real markup into an
+// offscreen clone (same technique as preFitPageForNav() below) and
+// positions it immediately adjacent to the current, still-live page
+// inside bookFlipEl, then slides bookFlipEl itself by one page-width in
+// a single motion - the current page and the clone move together the
+// entire time, like a real two-panel carousel, so there's never a point
+// where nothing is visible or the motion visibly restarts. The actual
+// PageFlip state swap (turnToPage(), instant/non-animated) only happens
+// once this single motion has already finished and the clone is thrown
+// away - by then the real page underneath is already sitting in exactly
+// the same spot the clone just was.
+const MOBILE_SLIDE_MS = 320;
 let slideInProgress = false;
 function slideFlip(targetIndex, direction) {
   if (slideInProgress) return;
   slideInProgress = true;
   const width = bookFlipEl.offsetWidth || 1;
+  const height = bookFlipEl.offsetHeight || 1;
+
+  const incomingWrap = document.createElement('div');
+  incomingWrap.style.cssText = `position:absolute; top:0; ${direction > 0 ? 'left' : 'right'}:${width}px; width:${width}px; height:${height}px; overflow:hidden;`;
+  incomingWrap.innerHTML = pageHtml(state.pages[targetIndex]);
+  const incomingPage = incomingWrap.firstElementChild;
+  if (incomingPage) {
+    incomingPage.style.width = `${width}px`;
+    incomingPage.style.height = `${height}px`;
+    incomingPage.style.boxSizing = 'border-box';
+  }
+  bookFlipEl.appendChild(incomingWrap);
+
+  bookFlipEl.style.transition = 'none';
+  bookFlipEl.style.transform = 'translateX(0)';
+  void bookFlipEl.offsetWidth; // force reflow before starting the real transition
   bookFlipEl.style.transition = `transform ${MOBILE_SLIDE_MS}ms ease`;
   bookFlipEl.style.transform = `translateX(${-direction * width}px)`;
+
   setTimeout(() => {
     pageFlip.turnToPage(targetIndex);
     state.currentPageIndex = targetIndex;
     updateNavUI(targetIndex + 1);
+    incomingWrap.remove();
     bookFlipEl.style.transition = 'none';
-    bookFlipEl.style.transform = `translateX(${direction * width}px)`;
-    void bookFlipEl.offsetWidth; // force reflow so the next line actually animates
-    bookFlipEl.style.transition = `transform ${MOBILE_SLIDE_MS}ms ease`;
     bookFlipEl.style.transform = 'translateX(0)';
-    setTimeout(() => {
-      bookFlipEl.style.transition = '';
-      slideInProgress = false;
-      settleFlipVisuals();
-    }, MOBILE_SLIDE_MS);
+    slideInProgress = false;
+    settleFlipVisuals();
   }, MOBILE_SLIDE_MS);
 }
 
