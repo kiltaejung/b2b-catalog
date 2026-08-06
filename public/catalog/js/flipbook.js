@@ -575,6 +575,7 @@ function ensurePageFlipMode() {
 function goToPage(oneBasedIndex) {
   const total = state.pages.length;
   const clamped = Math.min(Math.max(oneBasedIndex, 1), total);
+  preFitPageForNav(clamped - 1);
   pageFlip.turnToPage(clamped - 1);
   state.currentPageIndex = clamped - 1;
   updateNavUI(clamped);
@@ -591,6 +592,7 @@ function goToPage(oneBasedIndex) {
 // matches .book-stage's own 0.25s transition) keeps the two animations
 // sequential instead of visually and geometrically fighting each other.
 function next() {
+  preFitPageForNav(Math.min(state.currentPageIndex + 1, state.pages.length - 1));
   if (state.zoom > 1.01) {
     setZoom(1);
     setTimeout(() => pageFlip.flipNext(), 260);
@@ -600,6 +602,7 @@ function next() {
 }
 
 function prev() {
+  preFitPageForNav(Math.max(state.currentPageIndex - 1, 0));
   if (state.zoom > 1.01) {
     setZoom(1);
     setTimeout(() => pageFlip.flipPrev(), 260);
@@ -1783,14 +1786,16 @@ function sizeBookFlip() {
 // via syncLayout(), never merely because the current page changed.
 let dynamicGridStyleEl = null;
 let gridFitMinHeights = {};
-function fitProductGridImages({ reset = false } = {}) {
-  if (getLayoutMode() === 'spread') return; // PC has its own fixed cm-based sizing, not this
-  if (!bookFlipEl) return;
-  if (reset) gridFitMinHeights = {};
 
+// Core measurement pass, factored out so it can run against either the
+// live bookFlipEl (the reactive safety-net path) or an offscreen clone of
+// a page that hasn't been shown yet (see preFitPageForNav() below) -
+// both need the exact same per-grid arithmetic, just against a different
+// root element. Returns whether gridFitMinHeights actually changed.
+function measureGridFitFromContainer(container) {
   let changed = false;
   [{ capacity: 6, rows: 3 }, { capacity: 4, rows: 2 }, { capacity: 3, rows: 2 }].forEach(({ capacity, rows }) => {
-    const grids = bookFlipEl.querySelectorAll(`.product-grid-${capacity}`);
+    const grids = container.querySelectorAll(`.product-grid-${capacity}`);
     grids.forEach((grid) => {
       const tile = grid.querySelector('.product-tile');
       const img = tile ? tile.querySelector('img') : null;
@@ -1845,8 +1850,11 @@ function fitProductGridImages({ reset = false } = {}) {
       }
     });
   });
-  if (!changed) return;
+  return changed;
+}
 
+function applyGridFitStyle(changed) {
+  if (!changed) return;
   const rules = Object.keys(gridFitMinHeights)
     .map((capacity) => `.product-grid-${capacity} .product-tile img { height: ${gridFitMinHeights[capacity]}px !important; }`);
   if (!rules.length) return;
@@ -1857,6 +1865,63 @@ function fitProductGridImages({ reset = false } = {}) {
     document.head.appendChild(dynamicGridStyleEl);
   }
   dynamicGridStyleEl.textContent = rules.join('\n');
+}
+
+function fitProductGridImages({ reset = false } = {}) {
+  if (getLayoutMode() === 'spread') return; // PC has its own fixed cm-based sizing, not this
+  if (!bookFlipEl) return;
+  if (reset) gridFitMinHeights = {};
+  applyGridFitStyle(measureGridFitFromContainer(bookFlipEl));
+}
+
+// In single-page (mobile/tablet) mode, PageFlip only ever gives real
+// layout dimensions to the ONE page currently on screen - every other
+// page, including the very next/prev one, sits at display:none right up
+// until the flip actually lands on it (verified directly: at any moment
+// exactly one .page reports a non-zero offsetHeight). That meant
+// fitProductGridImages() could only ever discover a page needed a
+// *smaller* image than every page seen so far *after* it was already
+// visible - the reader would see it for a moment at the old (larger)
+// size, then watch it snap smaller once the reactive pass ran. Since a
+// revisited page's requirement was already known and never needs to
+// shrink again, this pop could only ever happen moving into page
+// territory not visited yet in the session - which on a catalog with
+// varied category-name/banner lengths is effectively every forward
+// flip, and never a backward one. That is the flicker reported as
+// "shaking only when moving right, never left".
+//
+// Fixed by pre-measuring the page we're about to navigate TO before
+// ever triggering the actual flip: its markup is rendered into an
+// offscreen clone sized to match the real (uniform, per the
+// sizeBookFlip()/vendor-lib comment above) page box, so the correct
+// final size is already applied by the time the page is ever shown -
+// in either direction.
+let gridFitScratchEl = null;
+function preFitPageForNav(targetIndex) {
+  if (getLayoutMode() === 'spread') return;
+  if (!bookFlipEl) return;
+  const pageData = state.pages[targetIndex];
+  if (!pageData) return;
+  const visiblePage = Array.from(bookFlipEl.querySelectorAll('.page')).find((p) => p.offsetHeight > 0);
+  if (!visiblePage) return;
+  const width = visiblePage.offsetWidth;
+  const height = visiblePage.offsetHeight;
+  if (!width || !height) return;
+
+  if (!gridFitScratchEl) {
+    gridFitScratchEl = document.createElement('div');
+    gridFitScratchEl.style.cssText = 'position:fixed; top:0; left:-9999px; pointer-events:none; visibility:hidden;';
+    document.body.appendChild(gridFitScratchEl);
+  }
+  gridFitScratchEl.innerHTML = pageHtml(pageData);
+  const clonedPage = gridFitScratchEl.firstElementChild;
+  if (!clonedPage) return;
+  clonedPage.style.width = `${width}px`;
+  clonedPage.style.height = `${height}px`;
+  clonedPage.style.boxSizing = 'border-box';
+
+  applyGridFitStyle(measureGridFitFromContainer(gridFitScratchEl));
+  gridFitScratchEl.innerHTML = '';
 }
 // Retries across animation frames until at least one product-grid page has
 // actually been mounted (real, non-zero dimensions) into the live DOM -
