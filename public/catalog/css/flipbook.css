@@ -1110,6 +1110,16 @@ html, body {
      from the goal here: fill as much of the card as the per-breakpoint
      tiers below actually have room for. */
   .product-tile img { max-width: none; }
+
+  /* Top bar (예산검색/장바구니/공유) trimmed to its icons' own footprint -
+     button font/icon size stays the same, only the padding/min-height
+     padding around them shrinks, and the bar itself shrinks to match so
+     there's no leftover slack above/below. sizeBookFlip() reads the real
+     rendered .toolbar height back out via --toolbar-h, so this also
+     directly grows the book's own available height - see point 10. */
+  .toolbar { height: 40px; padding: 0 0.5rem; }
+  .icon-btn { min-height: 32px; padding: 0.15rem 0.45rem; }
+  .price-search-btn { min-height: 32px; padding: 0.22rem 0.8rem; }
 }
 
 @media (max-width: 480px) {
