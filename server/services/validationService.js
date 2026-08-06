@@ -2,6 +2,15 @@ const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 const VALID_TAX_TYPES = ['면세', '과세'];
 const VALID_PROMO_BADGES = ['강력추천', '베스트'];
 
+// A site-relative path we minted ourselves - either /api/uploads/:id (the
+// admin product form's paste-to-upload field, or a re-saved excel-embedded
+// image) or the /assets/no-image.svg placeholder used when a product is
+// registered with no image at all. Both are already known-good (content
+// validated at upload time, or a real static asset), so they skip the
+// absolute-URL/extension checks below that only make sense for a
+// manually-typed external URL.
+const OWN_SITE_PATH = /^\/(api\/uploads\/\d+|assets\/[\w.-]+)$/;
+
 function isValidUrl(value) {
   try {
     const url = new URL(value);
@@ -67,11 +76,11 @@ function validateRows(rows, existingCodes = new Set()) {
     // column, or as a picture pasted/inserted directly into the cell (see
     // excelService's extractRowImages) - an embedded picture always wins
     // when both are present, so the URL column isn't even format-checked
-    // in that case.
+    // in that case. The image itself is optional at registration time - a
+    // row with neither still registers (with a placeholder image), so the
+    // image can be attached later from the admin product form instead.
     const embeddedImage = row._embeddedImage || null;
-    if (!row.image_url && !embeddedImage) {
-      rowErrors.push({ row: rowNumber, field: '대표이미지', message: '대표이미지가 없습니다. URL을 입력하거나 셀에 이미지를 삽입해주세요.' });
-    } else if (row.image_url && !embeddedImage) {
+    if (row.image_url && !embeddedImage && !OWN_SITE_PATH.test(row.image_url)) {
       if (!isValidUrl(row.image_url)) {
         rowErrors.push({ row: rowNumber, field: '대표이미지 URL', message: '유효한 URL 형식이 아닙니다.' });
       } else if (!hasImageExtension(row.image_url)) {

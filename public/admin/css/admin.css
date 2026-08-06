@@ -189,6 +189,20 @@ th { color: #475569; font-weight: 600; }
 
 .modal h2 { margin-top: 0; }
 
+.image-paste-zone {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: text;
+}
+.image-paste-zone:focus { outline: 2px solid #2563eb; outline-offset: 1px; }
+.image-paste-zone .thumb { width: 48px; height: 48px; flex: 0 0 auto; }
+.image-paste-zone .muted { margin-top: 0; }
+#imagePasteStatus { margin-left: auto; white-space: nowrap; }
+
 .image-adjust {
   border: 1px solid var(--border);
   border-radius: 8px;

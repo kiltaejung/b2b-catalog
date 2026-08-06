@@ -19,6 +19,64 @@ const imgAdjustZoom = document.getElementById('imgAdjustZoom');
 const imgAdjustOffsetX = document.getElementById('imgAdjustOffsetX');
 const imgAdjustOffsetY = document.getElementById('imgAdjustOffsetY');
 
+const imageUrlInput = document.getElementById('image_url');
+const imagePasteZone = document.getElementById('imagePasteZone');
+const imagePastePreview = document.getElementById('imagePastePreview');
+const imagePasteStatus = document.getElementById('imagePasteStatus');
+
+function setImagePastePreview(url) {
+  if (url) {
+    imagePastePreview.src = url;
+    imagePastePreview.style.display = '';
+  } else {
+    imagePastePreview.style.display = 'none';
+  }
+}
+
+async function uploadPastedImage(file) {
+  imagePasteStatus.textContent = '업로드 중...';
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await fetch('/api/uploads', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) {
+      imagePasteStatus.textContent = data.error || '업로드 실패';
+      return;
+    }
+    imageUrlInput.value = data.url;
+    setImagePastePreview(data.url);
+    imagePasteStatus.textContent = '이미지가 첨부되었습니다.';
+  } catch {
+    imagePasteStatus.textContent = '업로드 실패';
+  }
+  setTimeout(() => { imagePasteStatus.textContent = ''; }, 2000);
+}
+
+// Lets an admin paste a picture copied straight out of an Excel cell (or
+// anywhere else) instead of typing a URL - handy for excel-registered
+// products that were saved with a placeholder image and just need one
+// attached now. Scoped to this zone (rather than the whole document) so it
+// doesn't hijack normal text pasting in the other form fields.
+imagePasteZone.addEventListener('paste', (e) => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) {
+        e.preventDefault();
+        uploadPastedImage(file);
+      }
+      return;
+    }
+  }
+  imagePasteStatus.textContent = '클립보드에 이미지가 없습니다.';
+  setTimeout(() => { imagePasteStatus.textContent = ''; }, 2000);
+});
+
+imageUrlInput.addEventListener('input', () => setImagePastePreview(imageUrlInput.value));
+
 let searchTimer = null;
 
 function updateImageAdjustPreviewTransform() {
@@ -118,6 +176,8 @@ function openModal(product = null) {
     });
   }
   setImageAdjustFromProduct(product);
+  imagePasteStatus.textContent = '';
+  setImagePastePreview(product ? product.image_url : '');
   modalBackdrop.classList.add('open');
 }
 

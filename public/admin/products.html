@@ -75,8 +75,13 @@
           <input type="text" id="brand" />
         </label>
         <label>대표이미지 URL *
-          <input type="url" id="image_url" required />
+          <input type="text" id="image_url" required />
         </label>
+        <div class="image-paste-zone" id="imagePasteZone" tabindex="0" style="grid-column: 1 / -1">
+          <img id="imagePastePreview" class="thumb" alt="미리보기" style="display:none" />
+          <div class="muted">여기를 클릭한 뒤 <strong>Ctrl+V</strong>로 이미지를 붙여넣으면 자동으로 업로드됩니다. (엑셀 셀에서 이미지를 복사한 뒤에도 붙여넣을 수 있습니다)</div>
+          <div class="muted" id="imagePasteStatus"></div>
+        </div>
         <div class="image-adjust" id="imageAdjustSection" style="grid-column: 1 / -1; display:none">
           <h3>카탈로그 이미지 위치 조정</h3>
           <div class="image-adjust-body">

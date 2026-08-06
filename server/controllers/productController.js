@@ -4,34 +4,17 @@ const { validateRows } = require('../services/validationService');
 const { buildProductExportWorkbook, buildExportFilename, buildExportFilenameAscii } = require('../services/exportService');
 const { autoCropProductImage, cropBuffer } = require('../services/imageCropService');
 
-// Runs the auto-crop pipeline only when the image actually changed (or is
-// new), storing a successful result in the uploads table. Returns the
-// cropped_image_url to persist (null if no crop was produced) and whether
-// the source image changed (used to decide if manual zoom/pan should reset).
-// When embeddedBuffer is given (a picture pasted into the excel cell rather
-// than a URL), it's cropped directly instead of being re-fetched over HTTP -
-// fetchImageBuffer's SSRF guard would refuse a self-referencing
-// /api/uploads/:id URL anyway, and the bytes are already in hand.
-async function resolveCroppedImage(dbClient, imageUrl, existingRow, embeddedBuffer) {
-  const imageChanged = !existingRow || existingRow.image_url !== imageUrl;
-  if (!imageChanged) {
-    return { croppedImageUrl: existingRow.cropped_image_url, imageChanged: false };
-  }
+// Registration no longer requires an image up front - a row/product with
+// neither a URL nor an embedded picture still saves, using this in place of
+// image_url (a NOT NULL column) until an admin attaches a real image later
+// via the product form's paste-to-upload field.
+const PLACEHOLDER_IMAGE_URL = '/assets/no-image.svg';
 
-  const result = embeddedBuffer ? await cropBuffer(embeddedBuffer) : await autoCropProductImage(imageUrl);
-  if (!result) return { croppedImageUrl: null, imageChanged: true };
-
-  const { rows } = await dbClient.query(
-    'INSERT INTO uploads (mime_type, data) VALUES ($1, $2) RETURNING id',
-    [result.mimeType, result.buffer]
-  );
-  return { croppedImageUrl: `/api/uploads/${rows[0].id}`, imageChanged: true };
-}
-
-// Excel row's image_url is our own /api/uploads/:id URL only when the
-// picture was embedded in the cell (see resolveEmbeddedImageUrls below) -
-// parses the numeric id back out so its stored bytes can be compared
-// against a re-uploaded picture to tell whether it actually changed.
+// Excel row's or admin-pasted image_url is our own /api/uploads/:id URL
+// whenever the picture came from the excel cell (embedded) or the product
+// form's paste-to-upload field (see resolveEmbeddedImageUrls and
+// updateImageAdjust) rather than an external URL - parses the numeric id
+// back out so its stored bytes can be read directly.
 function parseUploadId(url) {
   const match = typeof url === 'string' ? /^\/api\/uploads\/(\d+)$/.exec(url) : null;
   return match ? Number(match[1]) : null;
@@ -40,6 +23,38 @@ function parseUploadId(url) {
 async function fetchUploadBuffer(dbClient, id) {
   const { rows } = await dbClient.query('SELECT data FROM uploads WHERE id = $1', [id]);
   return rows.length ? rows[0].data : null;
+}
+
+// Runs the auto-crop pipeline only when the image actually changed (or is
+// new), storing a successful result in the uploads table. Returns the
+// cropped_image_url to persist (null if no crop was produced) and whether
+// the source image changed (used to decide if manual zoom/pan should reset).
+// When embeddedBuffer is given (a picture pasted into the excel cell rather
+// than a URL), it's cropped directly instead of being re-fetched over HTTP.
+// A plain image_url that's actually our own /api/uploads/:id (pasted via
+// the admin product form) is read straight out of the uploads table for the
+// same reason: fetchImageBuffer's SSRF guard refuses a self-referencing URL,
+// and the bytes are already sitting right there in our own DB.
+async function resolveCroppedImage(dbClient, imageUrl, existingRow, embeddedBuffer) {
+  const imageChanged = !existingRow || existingRow.image_url !== imageUrl;
+  if (!imageChanged) {
+    return { croppedImageUrl: existingRow.cropped_image_url, imageChanged: false };
+  }
+
+  let buffer = embeddedBuffer || null;
+  if (!buffer) {
+    const ownUploadId = parseUploadId(imageUrl);
+    if (ownUploadId) buffer = await fetchUploadBuffer(dbClient, ownUploadId);
+  }
+
+  const result = buffer ? await cropBuffer(buffer) : await autoCropProductImage(imageUrl);
+  if (!result) return { croppedImageUrl: null, imageChanged: true };
+
+  const { rows } = await dbClient.query(
+    'INSERT INTO uploads (mime_type, data) VALUES ($1, $2) RETURNING id',
+    [result.mimeType, result.buffer]
+  );
+  return { croppedImageUrl: `/api/uploads/${rows[0].id}`, imageChanged: true };
 }
 
 // Mints a fresh /api/uploads/:id URL to stand in for image_url on rows
@@ -116,6 +131,7 @@ async function createProduct(req, res) {
   const { validRows, errors } = validateRows([req.body]);
   if (errors.length) return res.status(400).json({ errors });
   const p = validRows[0];
+  if (!p.image_url) p.image_url = PLACEHOLDER_IMAGE_URL;
   const { croppedImageUrl } = await resolveCroppedImage(pool, p.image_url, null);
   try {
     const { rows } = await pool.query(
@@ -148,6 +164,7 @@ async function updateProduct(req, res) {
     [req.params.id]
   );
   if (!existingRows.length) return res.status(404).json({ error: '상품을 찾을 수 없습니다.' });
+  if (!p.image_url) p.image_url = PLACEHOLDER_IMAGE_URL;
 
   const { croppedImageUrl, imageChanged } = await resolveCroppedImage(pool, p.image_url, existingRows[0]);
 
@@ -260,6 +277,9 @@ async function uploadProducts(req, res) {
   );
   const existingByCode = new Map(existingRows.map((r) => [r.product_code, r]));
   await resolveEmbeddedImageUrls(pool, validRows, existingByCode);
+  validRows.forEach((p) => {
+    if (!p.image_url) p.image_url = PLACEHOLDER_IMAGE_URL;
+  });
   const cropResults = new Map();
   for (const p of validRows) {
     const embeddedBuffer = p.embedded_image && !p._embeddedImageUnchanged ? p.embedded_image.buffer : null;
