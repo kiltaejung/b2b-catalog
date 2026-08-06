@@ -97,6 +97,8 @@ function buildPages(catalog) {
   const searchIndex = [];
 
   pages.push({ type: 'cover' });
+  pages.push({ type: 'orderGuide' });
+  pages.push({ type: 'packagingInfo' });
   const tocPageIndex = pages.length;
   pages.push({ type: 'toc', entries: [] });
 
@@ -184,6 +186,82 @@ function pageHtml(pageData) {
                     ${catalog.clientLogoUrl ? `<img src="${catalog.clientLogoUrl}" alt="client" />` : ''}
                     <span>${escapeHtml(catalog.clientName)} 전용 카탈로그</span>
                   </div>` : ''}
+              </div>
+            </div>
+          </div>
+        </div>`;
+
+    case 'orderGuide':
+      return `
+        <div class="page order-guide-page">
+          <div class="og-section">
+            <div class="og-header">📞 주문 및 상담 안내</div>
+            <ul class="og-info-list">
+              <li>✔ 상담센터(상품문의, 주문, 결제 등) : 1661-9978</li>
+              <li>✔ 배송 리스트 접수 : md@fosla.co.kr</li>
+              <li>✔ 대량 주문시 할인 드립니다</li>
+            </ul>
+            <div class="og-qr-box">
+              <div class="og-qr-code"></div>
+              <div class="og-qr-text">
+                추석선물 전체 상품보기<br />
+                URL: event.fosla.co.kr<br />
+                ID/PW: guest / 1111
+              </div>
+            </div>
+          </div>
+          <div class="og-section">
+            <div class="og-header">💬 구매전 주의사항</div>
+            <div class="og-qa-list">
+              <div class="og-qa">
+                <div class="og-q"><span class="og-q-mark">Q</span>주문 기한은 언제까지인가요?</div>
+                <div class="og-a"><span class="og-a-mark">A</span>2026년 09월 18일 오후 1시까지 접수 가능합니다.<br />※ 상품은 조기에 품절될 수 있습니다.(전화수령)</div>
+              </div>
+              <div class="og-qa">
+                <div class="og-q"><span class="og-q-mark">Q</span>상품 가격은 택배비 포함인가요?</div>
+                <div class="og-a"><span class="og-a-mark">A</span>네! 상품 가격은 포장과 택배비가 포함된 금액입니다.</div>
+              </div>
+              <div class="og-qa">
+                <div class="og-q"><span class="og-q-mark">Q</span>주문은 어떻게 진행하나요?</div>
+                <div class="og-a"><span class="og-a-mark">A</span>상품번호, 상품명, 보내시는분, 받으시는분(이름/주소/연락처)를 확인하신 후 md@fosla.co.kr로 메일 발송 요청드립니다. 주문서를 확인한 후, 순차적으로 주문 확인 연락을 드립니다.</div>
+              </div>
+              <div class="og-qa">
+                <div class="og-q"><span class="og-q-mark">Q</span>주문한 선물의 배송 결과는 어떻게 확인하나요?</div>
+                <div class="og-a"><span class="og-a-mark">A</span>출고 담당자가 하루 두번 이상 배송 상황을 확인하며, 문제가 발생한 주문은 즉시 안내드립니다.</div>
+              </div>
+              <div class="og-qa">
+                <div class="og-q"><span class="og-q-mark">Q</span>결제는 언제 어떻게 진행하나요?</div>
+                <div class="og-a"><span class="og-a-mark">A</span>네! 주문하면서 직접 결제를 하셔도 되고, 배송 후 또는 명절 이후 상담센터(1661-9978)를 통해 결제하셔도 됩니다.</div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+
+    case 'packagingInfo':
+      return `
+        <div class="page packaging-info-page">
+          <div class="pi-section">
+            <div class="pi-header">명절 스티커</div>
+            <div class="pi-body">
+              <div class="pi-text">✔ 선물 보내시는분의 감사 스티커를 부착해 드립니다.<br />9.9cm x 9.3cm의 스티커가 부착됩니다.</div>
+              <div class="pi-sample pi-sticker-sample">
+                <div class="pi-sticker-card">
+                  <div class="pi-sticker-title">풍요로운 추석<br />행복한 한가위 되세요</div>
+                  <div class="pi-sticker-name">○ ○ ○ 올림</div>
+                </div>
+                <div class="pi-sample-size">9.9cm x 9.3cm</div>
+              </div>
+            </div>
+          </div>
+          <div class="pi-section">
+            <div class="pi-header">택배 송장</div>
+            <div class="pi-body">
+              <div class="pi-text">✔ 택배 송장의 배송 메모에 보내는 분이 기재됩니다.</div>
+              <div class="pi-sample pi-invoice-sample">
+                <div class="pi-invoice-card">
+                  <div class="pi-invoice-row pi-invoice-memo">배송 메모: ○ ○ ○ 님이 보내신 선물입니다</div>
+                  <div class="pi-invoice-row pi-invoice-addr">받는분 주소 / 연락처</div>
+                </div>
               </div>
             </div>
           </div>
@@ -454,6 +532,7 @@ function ensurePageFlipMode() {
 
   pageFlip = new St.PageFlip(bookFlipEl, getPageFlipSettings(mode));
   pageFlip.loadFromHTML(buildPageElements());
+  renderStaticQrCodes();
   pageFlip.on('flip', (e) => {
     state.currentPageIndex = e.data;
     updateNavUI(e.data + 1);
@@ -1299,6 +1378,25 @@ function loadQrLibrary() {
   return qrLibraryPromise;
 }
 
+// The order-guide page's QR (a fixed store URL, not this catalog's own
+// share link) is baked into the page HTML as an empty .og-qr-code
+// container - filled in here once the library's loaded, for every such
+// container currently in the DOM (the main book and the print container
+// can each hold one at the same time).
+function renderStaticQrCodes() {
+  const containers = document.querySelectorAll('.og-qr-code:not([data-qr-rendered])');
+  if (!containers.length) return;
+  loadQrLibrary().then(() => {
+    containers.forEach((el) => {
+      el.dataset.qrRendered = '1';
+      // eslint-disable-next-line no-new
+      new window.QRCode(el, { text: 'https://event.fosla.co.kr', width: 90, height: 90 });
+    });
+  }).catch(() => {
+    containers.forEach((el) => { el.textContent = 'QR코드를 생성할 수 없습니다.'; });
+  });
+}
+
 async function shareViaQr() {
   const container = document.getElementById('qrContainer');
   container.innerHTML = '생성 중...';
@@ -1403,6 +1501,7 @@ function buildPrintContainer() {
   container.innerHTML = state.pages.map((pageData) => `
     <div class="print-page">${pageHtml(pageData)}</div>
   `).join('');
+  renderStaticQrCodes();
 }
 
 function triggerPrint() {
@@ -1415,6 +1514,8 @@ function triggerPrint() {
 // ---------------------------------------------------------------------
 function pageLabel(pageData) {
   if (pageData.type === 'cover') return '표지';
+  if (pageData.type === 'orderGuide') return '주문/상담 안내';
+  if (pageData.type === 'packagingInfo') return '포장 안내';
   if (pageData.type === 'toc') return '목차';
   if (pageData.type === 'back') return '주문안내';
   if (pageData.type === 'categoryGrid') return pageData.category;
