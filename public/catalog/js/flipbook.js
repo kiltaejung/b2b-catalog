@@ -2288,6 +2288,25 @@ document.addEventListener('focusout', (e) => {
     setTimeout(syncLayout, 250);
   }
 });
+// Backgrounding the tab (e.g. switching apps, or the phone locking) while
+// the 예산 검색 sheet's numeric input still has focus leaves
+// document.activeElement pointing at that input the whole time the tab is
+// away - so when the OS keyboard closing fires its own resize event during
+// that gap, handleWindowResize()'s own "skip while an input is focused"
+// guard above silently drops it instead of correcting for it (that guard
+// exists to avoid reacting mid-keystroke, which no longer applies once the
+// tab isn't even in front). The book stays sized to that stale, keyboard-
+// shrunk viewport indefinitely - reported back as a permanent blank gap at
+// the bottom that only went away after another 예산 검색 + 이동 happened to
+// trigger closeSheet()'s own resync. Explicitly resyncing the moment the
+// tab becomes visible again closes that gap regardless of whatever focus
+// state was left over from before it was backgrounded.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    clearTimeout(resizeSettleTimer);
+    syncLayout();
+  }
+});
 syncLayout();
 
 // ---------------------------------------------------------------------
