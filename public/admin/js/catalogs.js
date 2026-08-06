@@ -75,8 +75,24 @@ function renderPageLayoutEditor() {
   const categoryOrderText = document.getElementById('categoryOrder').value;
   const categories = computeCategoryOrder(allProducts, categoryOrderText);
 
-  if (!categories.length) {
+  if (!allProducts.length) {
     pageLayoutContainer.innerHTML = '<p class="muted">등록된 상품이 없습니다. 먼저 상품을 등록해주세요.</p>';
+    return;
+  }
+
+  // Products exist, but none of them belong to a category listed in
+  // "카테고리 노출 순서" - that field restricts the catalog to only those
+  // categories (see catalogService.resolveCategoryOrder), so a stale or
+  // mistyped value here silently hides every current product from the
+  // layout editor. Surface the actual categories so the admin can fix the
+  // field instead of concluding no products are registered.
+  if (!categories.length) {
+    const actualCategories = [...new Set(allProducts.map((p) => p.category))];
+    pageLayoutContainer.innerHTML = `<p class="muted">
+      "카테고리 노출 순서"에 입력된 값과 일치하는 상품이 없습니다.<br>
+      현재 등록된 상품의 카테고리: <strong>${actualCategories.map(escapeHtml).join(', ')}</strong><br>
+      위 카테고리에 맞게 "카테고리 노출 순서"를 수정하거나, 비워두면 모든 카테고리가 자동으로 표시됩니다.
+    </p>`;
     return;
   }
 
