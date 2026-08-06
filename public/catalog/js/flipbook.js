@@ -291,15 +291,15 @@ function pageHtml(pageData) {
           <div class="product-grid product-grid-${capacity}">
             ${pageData.products.map((p) => `
               <div class="product-tile">
-                ${p.productCode ? `<div class="tile-code">${escapeHtml(p.productCode)}</div>` : ''}
                 <div class="image-frame">
                   ${productImageHtml(p)}
+                  ${p.productCode ? `<div class="tile-code">${escapeHtml(p.productCode)}</div>` : ''}
                   ${promoStampHtml(p.promoBadge)}
                 </div>
                 ${catalog.showPrice ? `
                   <div class="price-badge">
                     ${p.originalPrice ? `<span class="original">${formatPrice(p.originalPrice)}</span>` : ''}
-                    ${formatTilePrice(p.salePrice)}
+                    <span class="sale">${formatTilePrice(p.salePrice)}</span>
                   </div>` : ''}
                 <div class="tile-name">${escapeHtml(p.name)}</div>
                 <div class="tile-meta">${escapeHtml([p.composition, p.features].filter(Boolean).join(' · '))}</div>
@@ -418,10 +418,18 @@ function updateNavUI(oneBasedPage) {
 // width that's still <=480 is rare) — see ensurePageFlipMode().
 function computePhoneBox() {
   const toolbarH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--toolbar-h')) || 50;
-  const bottomH = 52;
-  const margin = 6;
+  // Read the real measured bottom-bar height (see syncToolbarHeight()) the
+  // same way sizeBookFlip() does, rather than a hardcoded guess — any
+  // mismatch between the two shows up as a residual gap between the book
+  // and the bottom bar even after the margin below is removed.
+  const bottomH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bottom-h')) || 52;
+  // No margin: #bookViewport centers this box via flexbox, so any leftover
+  // height here would split into equal gaps above and below it, both
+  // landing right against the toolbar/bottom-bar's own dark background —
+  // visible as a thin dark line hugging the chrome (see sizeBookFlip()'s
+  // matching margin=0 for single-page mode).
   const width = Math.round(Math.min(window.innerWidth * 0.98, 480));
-  const height = Math.round(Math.min(window.innerHeight - toolbarH - bottomH - margin, 924));
+  const height = Math.round(Math.min(window.innerHeight - toolbarH - bottomH, 924));
   return { width, height };
 }
 
@@ -694,26 +702,36 @@ function applyStageTransform() {
 // inside a phantom full-spread-width stage with an empty other half, which
 // visually pushes it off to one side instead of screen-center. Re-center
 // it by measuring the actual gap once the DOM has settled.
+//
+// In mobile single-page mode EVERY page is "solo" (exactly one visible at
+// a time), so this runs on every single flip, not just cover/back-cover.
+// The offset it computes is the same value every time there though (same
+// viewport, same page box) — so unlike the old version, this no longer
+// force-resets soloOffsetX to 0 and re-measures from scratch on every
+// call (each reset was itself an animated transform change, on top of the
+// real re-measured one right after — two extra animated jumps stacked on
+// top of the page-turn animation itself, on every single mobile flip).
+// The rect read back here already includes whatever offset is currently
+// applied, so it's subtracted back out mathematically instead, and the
+// transform is only touched when the resulting value actually changed.
 function updateSoloCentering() {
   // A single rAF sometimes measures mid-flip, before PageFlip finishes
   // re-pairing pages around the newly-solo one (most noticeable jumping
   // straight to the last page) — a short delay lets it fully settle first.
   setTimeout(() => {
-    // Measure with any previous solo-offset removed first — otherwise the
-    // page rect we read back already includes the *last* solo page's
-    // correction, and computing a new offset from that already-shifted
-    // position compounds into the wrong answer.
-    state.soloOffsetX = 0;
-    applyStageTransform();
-
     const visiblePages = Array.from(bookFlipEl.querySelectorAll('.page'))
       .filter((el) => getComputedStyle(el).display !== 'none');
+    const currentOffset = state.soloOffsetX || 0;
+    let nextOffset = 0;
     if (visiblePages.length === 1) {
       const pageRect = visiblePages[0].getBoundingClientRect();
       const viewportRect = bookViewport.getBoundingClientRect();
-      const pageCenterX = pageRect.left + pageRect.width / 2;
+      const pageCenterX = pageRect.left + pageRect.width / 2 - currentOffset;
       const viewportCenterX = viewportRect.left + viewportRect.width / 2;
-      state.soloOffsetX = viewportCenterX - pageCenterX;
+      nextOffset = viewportCenterX - pageCenterX;
+    }
+    if (Math.abs(nextOffset - currentOffset) > 0.5) {
+      state.soloOffsetX = nextOffset;
       applyStageTransform();
     }
   }, 80);
@@ -1674,7 +1692,13 @@ function sizeBookFlip() {
   // already trimmed to ~50px each, so the book itself should claim
   // essentially all the space left (~85-90% of the viewport height),
   // not be pushed in further by generous margins on top of that.
-  const margin = state.chromeHidden ? 4 : (isSingle ? 6 : 10);
+  // Single-page (mobile/tablet) mode uses 0: #book-viewport is centered via
+  // flexbox, so any leftover height here splits into equal gaps above AND
+  // below the book - both landing right against the toolbar/bottom-bar's
+  // own dark background, which reads as a visible thin dark line hugging
+  // the chrome. Spread/PC mode keeps its margin since there the book sits
+  // well clear of both bars either way (no such seam to create).
+  const margin = state.chromeHidden ? 0 : (isSingle ? 0 : 10);
   const maxH = Math.min(window.innerHeight - toolbarH - bottomH - margin, mode === 'phone' ? 924 : 860);
   // In spread mode the 1320 cap alone ignored how narrow the actual window
   // was just above SPREAD_BREAKPOINT (e.g. 900px wide): the requested width

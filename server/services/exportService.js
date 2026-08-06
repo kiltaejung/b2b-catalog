@@ -1,6 +1,7 @@
 const ExcelJS = require('exceljs');
 const { imageSize } = require('image-size');
 const { fetchImageBuffer } = require('./safeImageFetch');
+const pool = require('../config/db');
 
 const IMAGE_BOX_PX = 100;
 const ROW_HEIGHT_POINTS = 80.1;
@@ -21,11 +22,10 @@ const EXPORT_COLUMNS = [
   { key: 'productCode', header: '상품코드', width: 16 },
   { key: 'name', header: '상품명', width: 31 },
   { key: 'composition', header: '상품구성', width: 20 },
-  { key: 'packaging', header: '포장', width: 16 },
   { key: 'salePrice', header: '판매가', width: 12 },
 ];
 
-const LAST_COL_LETTER = 'G';
+const LAST_COL_LETTER = 'F';
 const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E6E6' } };
 const LABEL_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBDD7EE' } };
 const THIN_BORDER = {
@@ -62,8 +62,31 @@ function buildExportFilenameAscii(isFiltered) {
   return `fosla_gift_${label}_${todayStamp()}.xlsx`;
 }
 
+// Excel row's image_url may be our own /api/uploads/:id URL (an
+// admin-pasted image, an excel-embedded image, or the auto-crop result) —
+// a relative path that fetchImageBuffer's SSRF guard always rejects since
+// it can't be parsed as an absolute URL. Those bytes already live in our
+// own uploads table, so read them directly instead of fetching over HTTP;
+// only a genuine external image_url goes through fetchImageBuffer.
+function parseUploadId(url) {
+  const match = typeof url === 'string' ? /^\/api\/uploads\/(\d+)$/.exec(url) : null;
+  return match ? Number(match[1]) : null;
+}
+
+async function fetchUploadBuffer(id) {
+  const { rows } = await pool.query('SELECT data FROM uploads WHERE id = $1', [id]);
+  return rows.length ? rows[0].data : null;
+}
+
+async function fetchProductImageBuffer(p) {
+  const url = p.cropped_image_url || p.image_url;
+  const ownUploadId = parseUploadId(url);
+  if (ownUploadId) return fetchUploadBuffer(ownUploadId);
+  return fetchImageBuffer(url);
+}
+
 async function buildProductExportWorkbook(products, title) {
-  const imageBuffers = await Promise.all(products.map((p) => fetchImageBuffer(p.image_url)));
+  const imageBuffers = await Promise.all(products.map((p) => fetchProductImageBuffer(p)));
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'B2B Catalog System';
@@ -130,7 +153,6 @@ async function buildProductExportWorkbook(products, title) {
       productCode: p.product_code,
       name: p.name,
       composition: p.composition,
-      packaging: p.packaging || '',
       salePrice: Number(p.sale_price),
     });
     const rowNumber = row.number;
