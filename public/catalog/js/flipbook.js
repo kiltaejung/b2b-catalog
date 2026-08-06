@@ -382,6 +382,18 @@ function updateNavUI(oneBasedPage) {
   totalPagesEl.textContent = total;
   pageCurrentTextMobile.textContent = oneBasedPage;
   totalPagesElMobile.textContent = total;
+}
+
+// Everything here touches the book-stage's own transform (pan/zoom reset,
+// solo-page centering) or measures page geometry - both only meaningful
+// once the flip animation has actually finished moving the page, not
+// while it's still mid-turn. Called from the PageFlip 'changeState'
+// listener once it reports 'read' (idle/settled) rather than off the
+// 'flip' event itself or a fixed delay - flippingTime defaults to a full
+// 1000ms in the vendored library, and the previous 80ms guess here was
+// measuring/repositioning against a page still visibly rotating in 3D,
+// which is exactly what read as "shaking" on every single page turn.
+function settleFlipVisuals() {
   resetPan();
   if (state.settings.autoFit) setZoom(1, false);
   updateSoloCentering();
@@ -549,8 +561,15 @@ function ensurePageFlipMode() {
     state.currentPageIndex = e.data;
     updateNavUI(e.data + 1);
   });
+  // 'read' means idle/settled - the counterpart states are 'flipping'
+  // (still mid-turn) and 'user_fold' (mid-drag) - see settleFlipVisuals()
+  // for why this, not 'flip', is what actually triggers it.
+  pageFlip.on('changeState', (e) => {
+    if (e.data === 'read') settleFlipVisuals();
+  });
   if (wasInitialized) pageFlip.turnToPage(savedIndex);
   updateNavUI(savedIndex + 1);
+  settleFlipVisuals();
 }
 
 function goToPage(oneBasedIndex) {
@@ -559,6 +578,10 @@ function goToPage(oneBasedIndex) {
   pageFlip.turnToPage(clamped - 1);
   state.currentPageIndex = clamped - 1;
   updateNavUI(clamped);
+  // turnToPage() jumps directly rather than animating like flipNext()/
+  // flipPrev(), so there's no 'changeState' -> 'read' transition to catch
+  // this on - the page is already at rest the instant it returns.
+  settleFlipVisuals();
 }
 
 // Resetting zoom and flipping in the very same tick raced PageFlip's own
@@ -1844,7 +1867,7 @@ function scheduleGridFit(opts, attemptsLeft = 20) {
   requestAnimationFrame(() => {
     const grid = bookFlipEl && bookFlipEl.querySelector('.product-grid-6, .product-grid-4, .product-grid-3');
     const page = grid && grid.closest('.page');
-    const ready = page && page.getBoundingClientRect().height > 0;
+    const ready = page && page.offsetHeight > 0;
     if (ready || attemptsLeft <= 0) {
       fitProductGridImages(opts);
     } else {
