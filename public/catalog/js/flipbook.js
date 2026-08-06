@@ -438,11 +438,10 @@ function settleFlipVisuals() {
   resetPan();
   if (state.settings.autoFit) setZoom(1, false);
   updateSoloCentering();
-  // No reset here - each flip can only ever discover a page that needs
-  // *less* room than what's already applied (or none at all), never
-  // something requiring the stylesheet to grow back up. See
-  // fitProductGridImages()'s own comment for why that matters.
-  scheduleGridFit();
+  // No grid-fit call here anymore - fitProductGridImagesForCatalog()
+  // computes one shared, catalog-wide value up front (see its own
+  // comment), so it no longer depends on which page is currently
+  // showing and doesn't need to re-run on every single flip.
 }
 
 // width:height must match the .book-flip aspect-ratio exactly — PageFlip's
@@ -646,8 +645,8 @@ function ensurePageFlipMode() {
 // matter how long each half lasts.
 //
 // This version instead renders the INCOMING page's real markup into an
-// offscreen clone (same technique as preFitPageForNav() below) and
-// positions it immediately adjacent to the current, still-live page
+// offscreen clone (same technique as fitProductGridImagesForCatalog()
+// below) and positions it immediately adjacent to the current, still-live page
 // inside bookFlipEl, then slides bookFlipEl itself by one page-width in
 // a single motion - the current page and the clone move together the
 // entire time, like a real two-panel carousel, so there's never a point
@@ -697,7 +696,6 @@ function goToPage(oneBasedIndex) {
   const total = state.pages.length;
   const clamped = Math.min(Math.max(oneBasedIndex, 1), total);
   const targetIndex = clamped - 1;
-  preFitPageForNav(targetIndex);
   if (getLayoutMode() === 'phone' && targetIndex !== state.currentPageIndex) {
     slideFlip(targetIndex, targetIndex > state.currentPageIndex ? 1 : -1);
     return;
@@ -722,7 +720,6 @@ function goToPage(oneBasedIndex) {
 function next() {
   const targetIndex = Math.min(state.currentPageIndex + 1, state.pages.length - 1);
   if (targetIndex === state.currentPageIndex) return;
-  preFitPageForNav(targetIndex);
   if (getLayoutMode() === 'phone') {
     if (state.zoom > 1.01) setZoom(1);
     slideFlip(targetIndex, 1);
@@ -739,7 +736,6 @@ function next() {
 function prev() {
   const targetIndex = Math.max(state.currentPageIndex - 1, 0);
   if (targetIndex === state.currentPageIndex) return;
-  preFitPageForNav(targetIndex);
   if (getLayoutMode() === 'phone') {
     if (state.zoom > 1.01) setZoom(1);
     slideFlip(targetIndex, -1);
@@ -1942,27 +1938,32 @@ function sizeBookFlip() {
 // size, by an amount CSS media queries have no way to see. This measures
 // the actual rendered page box (same "real arithmetic instead of
 // guessing" approach sizeBookFlip() already uses for the book itself) and
-// back-solves the image height that makes the page's own rows fill it
-// exactly, then applies that directly to that SAME page's own <img>
-// elements (inline style, not a shared stylesheet rule).
+// back-solves the image height that makes a page's own rows fill it
+// exactly.
 //
-// Earlier version of this kept one shared "tightest ever seen" minimum
-// per capacity in a global injected stylesheet, applying to every
-// .product-grid-N page at once - meant to guard against overflow without
-// a visible resize, but it also meant no page could ever be sized any
-// bigger than the single worst-case page anywhere in the catalog, even
-// when its own page had plenty of extra room to spare - exactly backwards
-// from "대표이미지 최대 확대" (make the image as large as this page's own
-// space allows), and the direct cause of a large empty gap below the
-// last row on any page shorter than that shared worst case.
+// Two earlier versions of this both got reported back as wrong in
+// opposite ways:
+//  - A shared "tightest ever seen" minimum, discovered incrementally as
+//    pages were actually visited: meant no page could size its image any
+//    bigger than the single worst-case page anywhere in the catalog, even
+//    with room to spare of its own - a large empty gap below the last row
+//    on any page shorter than that shared worst case.
+//  - Each page measured and sized fully independently: fixed the gap, but
+//    now every page's image size legitimately depends on that page's own
+//    banner length/content, so a longer category name gives a visibly
+//    smaller image than a page with a short one right next to it -
+//    reported as "growing then shrinking" while flipping through.
 //
-// Now each page is measured and sized independently (grow or shrink, no
-// monotonic ratchet, no cross-page interference) - safe to do because
-// preFitPageForNav() below already computes and applies each page's own
-// correct size *before* it's ever shown, so there's still no visible pop
-// on arrival; this reactive pass is only a fallback for paths that don't
-// go through it (initial load, resize/orientation).
-function idealImgHeightsForContainer(container) {
+// This computes the correct middle ground: still one shared value per
+// capacity (so every page reads at the same, consistent, maximized size -
+// nothing ever looks like it shrinks moving between pages), but the value
+// itself is the true minimum needed across the WHOLE catalog, computed by
+// sweeping every page up front - not incrementally discovered as pages
+// happen to be visited, which is what made the old shrink-only version
+// under-fill everything (it started from an overly generous guess and
+// only ever found out a page needed less if that page was actually
+// visited that session).
+function idealImgHeightForPage(container) {
   const results = [];
   [{ capacity: 6, rows: 3 }, { capacity: 4, rows: 2 }, { capacity: 3, rows: 2 }].forEach(({ capacity, rows }) => {
     const grids = container.querySelectorAll(`.product-grid-${capacity}`);
@@ -1983,10 +1984,6 @@ function idealImgHeightsForContainer(container) {
       // visually curling mid-animation would return a squashed, wrong
       // height.
       const pageHeight = page.offsetHeight;
-      // Zero here means PageFlip hasn't mounted/sized this particular
-      // page yet (see above) - not a real "zero room" case, so it must
-      // be skipped rather than treated as a valid (impossibly tight)
-      // measurement.
       if (!pageHeight) return;
       const pageStyle = getComputedStyle(page);
       const pagePaddingV = parseFloat(pageStyle.paddingTop) + parseFloat(pageStyle.paddingBottom);
@@ -2018,45 +2015,20 @@ function idealImgHeightsForContainer(container) {
   return results;
 }
 
-function applyImgHeightsToContainer(container, results) {
-  results.forEach(({ capacity, targetImgHeight }) => {
-    container.querySelectorAll(`.product-grid-${capacity} .product-tile img`).forEach((img) => {
-      img.style.setProperty('height', `${targetImgHeight}px`, 'important');
-    });
-  });
-}
-
-function fitProductGridImages() {
-  if (getLayoutMode() === 'spread') return; // PC has its own fixed cm-based sizing, not this
-  if (!bookFlipEl) return;
-  applyImgHeightsToContainer(bookFlipEl, idealImgHeightsForContainer(bookFlipEl));
-}
-
-// In single-page (mobile/tablet) mode, PageFlip only ever gives real
-// layout dimensions to the ONE page currently on screen - every other
-// page, including the very next/prev one, sits at display:none right up
-// until the flip actually lands on it (verified directly: at any moment
-// exactly one .page reports a non-zero offsetHeight). That meant
-// fitProductGridImages() could only ever discover a page's correct size
-// *after* it was already visible - the reader would see it for a moment
-// at the wrong size, then watch it visibly snap once the reactive pass
-// ran.
-//
-// Fixed by pre-measuring the page we're about to navigate TO before ever
-// triggering the actual flip: its markup is rendered into an offscreen
-// clone sized to match the real (uniform, per the sizeBookFlip()/vendor-
-// lib comment above) page box, and the resulting size is applied directly
-// to the REAL target page's own (still display:none, not yet visible)
-// <img> elements - matched by position, since buildPageElements() emits
-// .page divs in the same order as state.pages - so the correct final
-// size is already in place by the time the page is ever shown, in either
-// direction.
+let dynamicGridStyleEl = null;
 let gridFitScratchEl = null;
-function preFitPageForNav(targetIndex) {
-  if (getLayoutMode() === 'spread') return;
-  if (!bookFlipEl) return;
-  const pageData = state.pages[targetIndex];
-  if (!pageData) return;
+// Sweeps every page in the catalog through an offscreen clone (so it
+// works regardless of which pages PageFlip has actually mounted - see
+// idealImgHeightForPage()'s own comment on why that matters), keeping the
+// smallest (tightest) height genuinely needed per capacity across the
+// whole book, then applies that as one shared, catalog-wide stylesheet
+// rule. Run once up front (after the pages are built) and again on any
+// genuine layout change (resize/orientation/spread<->single) - never per
+// navigation, since the result no longer depends on which page is
+// currently showing.
+function fitProductGridImagesForCatalog() {
+  if (getLayoutMode() === 'spread') return; // PC has its own fixed cm-based sizing, not this
+  if (!bookFlipEl || !state.pages.length) return;
   const visiblePage = Array.from(bookFlipEl.querySelectorAll('.page')).find((p) => p.offsetHeight > 0);
   if (!visiblePage) return;
   const width = visiblePage.offsetWidth;
@@ -2068,32 +2040,43 @@ function preFitPageForNav(targetIndex) {
     gridFitScratchEl.style.cssText = 'position:fixed; top:0; left:-9999px; pointer-events:none; visibility:hidden;';
     document.body.appendChild(gridFitScratchEl);
   }
-  gridFitScratchEl.innerHTML = pageHtml(pageData);
-  const clonedPage = gridFitScratchEl.firstElementChild;
-  if (!clonedPage) return;
-  clonedPage.style.width = `${width}px`;
-  clonedPage.style.height = `${height}px`;
-  clonedPage.style.boxSizing = 'border-box';
 
-  const results = idealImgHeightsForContainer(gridFitScratchEl);
+  const mins = {};
+  state.pages.forEach((pageData) => {
+    gridFitScratchEl.innerHTML = pageHtml(pageData);
+    const clonedPage = gridFitScratchEl.firstElementChild;
+    if (!clonedPage) return;
+    clonedPage.style.width = `${width}px`;
+    clonedPage.style.height = `${height}px`;
+    clonedPage.style.boxSizing = 'border-box';
+    idealImgHeightForPage(gridFitScratchEl).forEach(({ capacity, targetImgHeight }) => {
+      if (mins[capacity] === undefined || targetImgHeight < mins[capacity]) mins[capacity] = targetImgHeight;
+    });
+  });
   gridFitScratchEl.innerHTML = '';
-  if (!results.length) return;
 
-  const realPage = bookFlipEl.querySelectorAll('.page')[targetIndex];
-  if (realPage) applyImgHeightsToContainer(realPage, results);
+  const rules = Object.keys(mins).map((capacity) => `.product-grid-${capacity} .product-tile img { height: ${mins[capacity]}px !important; }`);
+  if (!rules.length) return;
+  if (!dynamicGridStyleEl) {
+    dynamicGridStyleEl = document.createElement('style');
+    dynamicGridStyleEl.id = 'dynamicGridFit';
+    document.head.appendChild(dynamicGridStyleEl);
+  }
+  dynamicGridStyleEl.textContent = rules.join('\n');
 }
-// Retries across animation frames until at least one product-grid page has
-// actually been mounted (real, non-zero dimensions) into the live DOM -
+
+// Retries across animation frames until at least one page has actually
+// been mounted (real, non-zero dimensions) into the live DOM -
 // loadFromHTML() finishes mounting pages asynchronously, so a fixed
-// one-or-two-frame delay could still run before that ever completes and
-// silently compute nothing.
+// one-or-two-frame delay could still run before that ever completes,
+// leaving fitProductGridImagesForCatalog() with no real page to size its
+// clone against yet.
 function scheduleGridFit(attemptsLeft = 20) {
   requestAnimationFrame(() => {
-    const grid = bookFlipEl && bookFlipEl.querySelector('.product-grid-6, .product-grid-4, .product-grid-3');
-    const page = grid && grid.closest('.page');
-    const ready = page && page.offsetHeight > 0;
+    const anyPage = bookFlipEl && bookFlipEl.querySelector('.page');
+    const ready = anyPage && anyPage.offsetHeight > 0;
     if (ready || attemptsLeft <= 0) {
-      fitProductGridImages();
+      fitProductGridImagesForCatalog();
     } else {
       scheduleGridFit(attemptsLeft - 1);
     }
@@ -2106,11 +2089,10 @@ function syncLayout() {
   ensurePageFlipMode();
   sizeBookFlip();
   if (pageFlip) updateSoloCentering();
-  // Only re-fits the currently visible page - any other page's inline
-  // sizing (possibly stale from before this layout change, e.g. a
-  // rotation) is harmless to leave alone, since preFitPageForNav()
-  // recomputes it fresh from the new dimensions the next time it's
-  // actually navigated to.
+  // Recomputes the shared catalog-wide grid-fit value against whatever
+  // the page dimensions are now - needed here (init, resize, orientation,
+  // spread<->single) since fitProductGridImagesForCatalog() itself only
+  // runs when explicitly asked, not on every layout-affecting event.
   scheduleGridFit();
 }
 // On mobile, the on-screen keyboard opening/closing fires window resize
