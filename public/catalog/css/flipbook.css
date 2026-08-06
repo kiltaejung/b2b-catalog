@@ -1045,7 +1045,7 @@ html, body {
    same page geometry as an actual browser print — one definition instead of
    duplicating it for both paths. #printContainer itself stays display:none
    on screen (via .print-only above) except while either export path is
-   actively using it (.pdf-rendering below, or @media print itself).
+   actively using it (.print-active below, or @media print itself).
    One catalog page = one physical A4 sheet; the .page inside is centered
    and letterboxed to its real 480:626 portrait ratio (see
    getPageFlipSettings()) rather than stretched to A4's slightly different
@@ -1070,10 +1070,17 @@ html, body {
   box-shadow: none !important;
   overflow: hidden !important;
 }
-/* Used only while downloadPdf() is rasterizing pages off-screen — real
-   layout/paint requires the element not be display:none, but it must stay
-   out of the visible viewport and behind the loading toast the whole time. */
-.pdf-rendering { display: block !important; position: fixed; top: 0; left: -100000px; }
+/* A live add-to-cart button makes no sense on a printed/exported page - it
+   also frees up the tile's own chrome height so fitProductGridImagesForPrint()
+   (flipbook.js) gives the image that freed space instead. */
+#printContainer .btn-add-cart { display: none; }
+/* Used while buildPrintContainer()'s output is being measured/rasterized -
+   real layout/paint requires the element not be display:none, but it must
+   stay out of the visible viewport (and, for the PDF path specifically,
+   behind the loading toast) the whole time. Left applied after 인쇄 too
+   (harmless off-screen) since window.print()'s own timing/blocking behavior
+   varies too much across mobile browsers to safely know when it's done. */
+.print-active { display: block !important; position: fixed; top: 0; left: -100000px; }
 @page {
   size: A4;
   margin: 0;

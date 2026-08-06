@@ -1730,11 +1730,47 @@ document.querySelectorAll('#moreSheet [data-more]').forEach((btn) => {
   });
 });
 
+let printGridStyleEl = null;
+// The live book's own #dynamicGridFit rule (fitProductGridImagesForCatalog())
+// sizes grid images for the on-screen mobile page box (a few hundred px
+// tall) - but it's a plain class selector with !important, so with no
+// override it also silently applies inside #printContainer, whose
+// .print-page boxes are a full A4 sheet (~1100px tall at print resolution) -
+// leaving the grid using mobile-sized images with a large blank gap below
+// them (reported back as the PDF export looking broken/squished). This
+// computes the print container's OWN true minimum per category+capacity -
+// same idealImgHeightForPage() math the mobile fit uses, just measured
+// against the print box's real (much bigger) geometry - and applies it via
+// an #printContainer-scoped rule, which outranks the mobile rule's plain
+// class selector by specificity regardless of which <style> tag comes first.
+// Must run after the container is made visible (.print-active, see CSS) -
+// offsetHeight reads 0 on a display:none box - and after .btn-add-cart is
+// hidden (also via CSS) so that freed space counts toward the image budget.
+function fitProductGridImagesForPrint(container) {
+  const mins = {};
+  idealImgHeightForPage(container).forEach(({ capacity, category, targetImgHeight }) => {
+    const key = `${category}::${capacity}`;
+    if (mins[key] === undefined || targetImgHeight < mins[key].height) mins[key] = { category, capacity, height: targetImgHeight };
+  });
+  const rules = Object.values(mins).map(({ category, capacity, height: h }) => `#printContainer .product-grid-${capacity}[data-category="${cssAttrEscape(category)}"] .product-tile img { height: ${h}px !important; }`);
+  if (!printGridStyleEl) {
+    printGridStyleEl = document.createElement('style');
+    printGridStyleEl.id = 'printGridFit';
+    document.head.appendChild(printGridStyleEl);
+  }
+  printGridStyleEl.textContent = rules.join('\n');
+}
+
 function buildPrintContainer() {
   const container = document.getElementById('printContainer');
   container.innerHTML = state.pages.map((pageData) => `
     <div class="print-page">${pageHtml(pageData)}</div>
   `).join('');
+  // Needs to be visible (real, non-zero layout box) before it can be
+  // measured below - see the CSS comment on .print-active for why this
+  // stays applied afterward instead of being toggled back off here.
+  container.classList.add('print-active');
+  fitProductGridImagesForPrint(container);
   return container;
 }
 
@@ -1803,8 +1839,7 @@ function waitForImages(container) {
 
 async function downloadPdf() {
   showPdfToast('PDF 생성 중입니다...');
-  const container = buildPrintContainer();
-  container.classList.add('pdf-rendering');
+  const container = buildPrintContainer(); // already applies .print-active - see its own comment
   try {
     await loadPdfLibs();
     await waitForImages(container);
@@ -1828,7 +1863,7 @@ async function downloadPdf() {
     console.error('PDF export failed', err);
     alert('PDF 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
   } finally {
-    container.classList.remove('pdf-rendering');
+    container.classList.remove('print-active');
     container.innerHTML = '';
     hidePdfToast();
   }
