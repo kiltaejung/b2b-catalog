@@ -8,6 +8,17 @@
 <script src="/config.js"></script>
 </head>
 <body>
+  <!-- KakaoTalk's in-app browser (a WebView, not the phone's real Chrome/
+       Safari) renders the page-flip's 3D curl animation noticeably janky -
+       shaking/flickering that doesn't happen in a real browser. Shown only
+       when detected (see openInExternalBrowser() in flipbook.js), offering
+       a one-tap way out via KakaoTalk's own external-open scheme. -->
+  <div id="kakaoInAppBanner" class="kakao-inapp-banner" hidden>
+    <span>카카오톡 인앱 브라우저에서는 페이지 넘김이 매끄럽지 않을 수 있어요.</span>
+    <button id="btnOpenExternalBrowser" type="button">다른 브라우저로 열기</button>
+    <button id="btnDismissKakaoBanner" type="button" aria-label="닫기" class="kakao-inapp-banner-close">✕</button>
+  </div>
+
   <header class="toolbar">
     <div class="toolbar-left"></div>
     <div class="toolbar-center">

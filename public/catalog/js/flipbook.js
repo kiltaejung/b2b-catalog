@@ -31,6 +31,36 @@ const pageCurrentTextMobile = document.getElementById('pageCurrentTextMobile');
 const totalPagesElMobile = document.getElementById('totalPagesMobile');
 const loadingScreen = document.getElementById('loadingScreen');
 
+// KakaoTalk's in-app browser is a WebView embedded in the KakaoTalk app
+// itself, not the phone's actual Chrome/Samsung Internet/Safari - and its
+// rendering of the page-flip's 3D curl animation is visibly janky
+// (shake/flicker) in a way that doesn't reproduce in a real browser on the
+// same device. Since this catalog is primarily shared and opened via
+// KakaoTalk links, that's not a rare edge case. Detected purely from the
+// UA string (KakaoTalk appends "KAKAOTALK" to it), offering a one-tap way
+// to reopen the same URL in the device's real default browser via
+// KakaoTalk's own documented scheme - no way to fix the WebView's
+// rendering from inside the page itself.
+(function setupKakaoInAppBanner() {
+  const isKakaoInApp = /KAKAOTALK/i.test(navigator.userAgent);
+  if (!isKakaoInApp) return;
+  if (sessionStorage.getItem('kakaoBannerDismissed') === '1') return;
+
+  const banner = document.getElementById('kakaoInAppBanner');
+  const openBtn = document.getElementById('btnOpenExternalBrowser');
+  const closeBtn = document.getElementById('btnDismissKakaoBanner');
+  if (!banner || !openBtn || !closeBtn) return;
+
+  banner.hidden = false;
+  openBtn.addEventListener('click', () => {
+    window.location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(window.location.href)}`;
+  });
+  closeBtn.addEventListener('click', () => {
+    banner.hidden = true;
+    sessionStorage.setItem('kakaoBannerDismissed', '1');
+  });
+})();
+
 let pageFlip = null;
 
 function getMaxZoom() {
