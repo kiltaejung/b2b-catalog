@@ -19,13 +19,21 @@
   .party-row .label { width: 72px; color: #64748b; flex-shrink: 0; }
   .party-row .value { display: flex; align-items: center; gap: 0.35rem; }
   img.stamp { height: 42px; mix-blend-mode: multiply; }
-  table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
-  th, td { border: 1px solid #e2e8f0; padding: 0.55rem; text-align: center; font-size: 0.85rem; }
+  table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; table-layout: fixed; }
+  th, td { border: 1px solid #e2e8f0; padding: 0.55rem; text-align: center; font-size: 0.85rem; word-break: break-word; }
   th { background: #f8fafc; }
-  td.num, th.num { text-align: right; }
-  td.img-cell img { width: 88px; height: 88px; object-fit: cover; border-radius: 4px; background: #f1f5f9; }
+  td.num { text-align: right; white-space: nowrap; }
+  th.num { text-align: center; }
+  th:nth-child(1), td:nth-child(1) { width: 14%; }
+  th:nth-child(2), td:nth-child(2) { width: 12%; }
+  th:nth-child(3), td:nth-child(3) { width: 36%; }
+  th:nth-child(4), td:nth-child(4) { width: 16%; }
+  th:nth-child(5), td:nth-child(5) { width: 8%; }
+  th:nth-child(6), td:nth-child(6) { width: 14%; }
+  td.img-cell img { width: 64px; height: 64px; object-fit: contain; border-radius: 4px; background: #fff; }
   .total-row td { font-weight: 700; font-size: 1rem; }
-  .bank-box { margin-top: 1.25rem; padding: 0.9rem 1rem; background: #f8fafc; border-radius: 8px; font-size: 0.85rem; }
+  tr { page-break-inside: avoid; break-inside: avoid; }
+  .bank-box { margin-top: 1.25rem; padding: 0.9rem 1rem; background: #f8fafc; border-radius: 8px; font-size: 0.85rem; page-break-inside: avoid; break-inside: avoid; }
   .bank-box strong { color: #1e3a8a; }
   .bank-box .bank-line { padding: 0.15rem 0; }
   .print-btn { margin-top: 1.5rem; padding: 0.6rem 1.2rem; background: #1e3a8a; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
@@ -74,9 +82,9 @@
         <tr><th>이미지</th><th>상품코드</th><th>상품명</th><th class="num">단가</th><th class="num">수량</th><th class="num">소계</th></tr>
       </thead>
       <tbody id="quoteItems"></tbody>
-      <tfoot>
+      <tbody>
         <tr class="total-row"><td colspan="5" class="num">합계</td><td class="num" id="quoteTotal"></td></tr>
-      </tfoot>
+      </tbody>
     </table>
   </div>
 

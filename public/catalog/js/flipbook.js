@@ -1196,15 +1196,20 @@ function renderCart() {
   if (!cart.length) {
     cartItems.innerHTML = '<p style="color:#94a3b8;font-size:0.85rem">담긴 상품이 없습니다.</p>';
   } else {
-    cartItems.innerHTML = cart.map((item) => `
+    cartItems.innerHTML = cart.map((item) => {
+      const product = findProductById(item.productId);
+      const imgSrc = (product && (product.croppedImageUrl || product.imageUrl)) || '/assets/no-image.svg';
+      return `
       <div class="cart-item" data-id="${item.productId}">
-        <div style="flex:1">
-          <div>${escapeHtml(item.name)}</div>
-          <div style="color:#94a3b8">${formatPrice(item.unitPrice)}</div>
+        <img class="cart-item-thumb" src="${imgSrc}" alt="" onerror="this.onerror=null;this.src='/assets/no-image.svg'" />
+        <div class="cart-item-info">
+          <div class="cart-item-name">${escapeHtml(item.name)}</div>
+          <div class="cart-item-price">${formatPrice(item.unitPrice)}</div>
         </div>
         <input type="number" min="1" value="${item.quantity}" data-qty="${item.productId}" />
-        <button type="button" class="icon-btn" style="background:#fee2e2;color:#991b1b" data-remove="${item.productId}">삭제</button>
-      </div>`).join('');
+        <button type="button" class="icon-btn cart-item-remove" data-remove="${item.productId}">삭제</button>
+      </div>`;
+    }).join('');
   }
 
   const total = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
