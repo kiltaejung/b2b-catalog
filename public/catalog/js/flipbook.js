@@ -385,13 +385,10 @@ function updateNavUI(oneBasedPage) {
   resetPan();
   if (state.settings.autoFit) setZoom(1, false);
   updateSoloCentering();
-  // Called on every flip (and once at initial load, before any flip has
-  // happened) - PageFlip finishes mounting its pages into the live DOM
-  // asynchronously after loadFromHTML(), so the single call this used to
-  // get from syncLayout() at page-load time could run before that mount
-  // ever completes and silently find nothing. Re-running it here as well,
-  // on every navigation, means it's never more than one flip stale even
-  // if that first attempt missed.
+  // No reset here - each flip can only ever discover a page that needs
+  // *less* room than what's already applied (or none at all), never
+  // something requiring the stylesheet to grow back up. See
+  // fitProductGridImages()'s own comment for why that matters.
   scheduleGridFit();
 }
 
@@ -1744,49 +1741,91 @@ function sizeBookFlip() {
 // sizeBookFlip() already uses for the book itself) and back-solves the
 // image height that makes every row actually fit, then overrides
 // whatever the CSS breakpoint set via an injected stylesheet.
+//
+// PageFlip only ever gives real (non-zero) layout dimensions to pages it
+// has actually mounted into its live flip window - typically just the
+// current page and its immediate neighbors, not every page in the book -
+// so this can only ever measure whichever grid page(s) happen to be
+// active *right now*, not "the worst case across the whole catalog" in
+// one pass. To still guarantee no page overflows without the image
+// visibly resizing on every single flip, the applied height only ever
+// shrinks (never grows back) within a session: each call keeps the
+// tightest requirement seen so far per capacity, and only touches the
+// stylesheet when a newly-measured page actually needs less room than
+// what's already applied. A page with more room than the current value
+// is silently left alone - it already fits, so there's nothing to fix
+// and nothing worth risking a visible resize over. gridFitMinHeights is
+// reset (starting fresh from the CSS breakpoint defaults) only on a
+// genuine layout change - resize, orientation, spread/single switch -
+// via syncLayout(), never merely because the current page changed.
 let dynamicGridStyleEl = null;
-function fitProductGridImages() {
+let gridFitMinHeights = {};
+function fitProductGridImages({ reset = false } = {}) {
   if (getLayoutMode() === 'spread') return; // PC has its own fixed cm-based sizing, not this
   if (!bookFlipEl) return;
+  if (reset) gridFitMinHeights = {};
 
-  const rules = [];
+  let changed = false;
   [{ capacity: 6, rows: 3 }, { capacity: 4, rows: 2 }, { capacity: 3, rows: 2 }].forEach(({ capacity, rows }) => {
-    const grid = bookFlipEl.querySelector(`.product-grid-${capacity}`);
-    const tile = grid ? grid.querySelector('.product-tile') : null;
-    const img = tile ? tile.querySelector('img') : null;
-    // Every .page shares one exact pixel box (see the sizeBookFlip()
-    // comment on why) - but that box is only actually laid out on a real
-    // *content* page, not the absolutely-positioned .page-cover, so this
-    // has to be measured from THIS grid's own page, not an arbitrary one.
-    const page = grid ? grid.closest('.page') : null;
-    if (!grid || !tile || !img || !page) return;
-    const pageRect = page.getBoundingClientRect();
-    if (!pageRect.height) return;
-    const pageStyle = getComputedStyle(page);
-    const pagePaddingV = parseFloat(pageStyle.paddingTop) + parseFloat(pageStyle.paddingBottom);
+    const grids = bookFlipEl.querySelectorAll(`.product-grid-${capacity}`);
+    grids.forEach((grid) => {
+      const tile = grid.querySelector('.product-tile');
+      const img = tile ? tile.querySelector('img') : null;
+      // Every .page shares one exact pixel box (see the sizeBookFlip()
+      // comment on why) - but that box is only actually laid out on a
+      // real *content* page, not the absolutely-positioned .page-cover,
+      // so this has to be measured from THIS grid's own page.
+      const page = grid.closest('.page');
+      if (!tile || !img || !page) return;
+      // offsetHeight (not getBoundingClientRect()) throughout this
+      // function deliberately - it reads the element's own layout box,
+      // unaffected by the 3D rotateY/perspective transform PageFlip
+      // applies to a page while it's mid-flip. getBoundingClientRect()
+      // reflects that transform, so measuring a page that's still
+      // visually curling mid-animation returned a squashed, wrong height
+      // - and since the result here only ever ratchets down (never back
+      // up) within a session, one bad transform-distorted reading would
+      // otherwise have permanently wedged the image far too small.
+      const pageHeight = page.offsetHeight;
+      // Zero here means PageFlip hasn't mounted/sized this particular
+      // page yet (see above) - not a real "zero room" case, so it must
+      // be skipped rather than treated as a valid (impossibly tight)
+      // measurement.
+      if (!pageHeight) return;
+      const pageStyle = getComputedStyle(page);
+      const pagePaddingV = parseFloat(pageStyle.paddingTop) + parseFloat(pageStyle.paddingBottom);
 
-    const banner = page.querySelector('.category-banner');
-    let bannerH = 0;
-    if (banner) {
-      const bannerStyle = getComputedStyle(banner);
-      bannerH = banner.getBoundingClientRect().height + parseFloat(bannerStyle.marginBottom || 0);
-    }
-    const gridStyle = getComputedStyle(grid);
-    const rowGap = parseFloat(gridStyle.rowGap || gridStyle.gap) || 0;
+      const banner = page.querySelector('.category-banner');
+      let bannerH = 0;
+      if (banner) {
+        const bannerStyle = getComputedStyle(banner);
+        bannerH = banner.offsetHeight + parseFloat(bannerStyle.marginBottom || 0);
+      }
+      const gridStyle = getComputedStyle(grid);
+      const rowGap = parseFloat(gridStyle.rowGap || gridStyle.gap) || 0;
 
-    const availableForRows = pageRect.height - pagePaddingV - bannerH - rowGap * (rows - 1);
-    const tileHeight = tile.getBoundingClientRect().height;
-    const imgHeight = img.getBoundingClientRect().height;
-    // Everything in a tile except the image itself (code badge overlay
-    // doesn't count - it's position:absolute, already excluded from tile
-    // layout height) - independent of the image's own current height, so
-    // this is exact, not an approximation that needs iterating.
-    const chromeHeight = tileHeight - imgHeight;
+      const availableForRows = pageHeight - pagePaddingV - bannerH - rowGap * (rows - 1);
+      const tileHeight = tile.offsetHeight;
+      const imgHeight = img.offsetHeight;
+      // Everything in a tile except the image itself (code badge overlay
+      // doesn't count - it's position:absolute, already excluded from
+      // tile layout height) - independent of the image's own current
+      // height, so this is exact, not an approximation that needs
+      // iterating.
+      const chromeHeight = tileHeight - imgHeight;
 
-    const perRowBudget = availableForRows / rows;
-    const targetImgHeight = Math.max(36, Math.floor(perRowBudget - chromeHeight));
-    rules.push(`.product-grid-${capacity} .product-tile img { height: ${targetImgHeight}px !important; }`);
+      const perRowBudget = availableForRows / rows;
+      const targetImgHeight = Math.max(36, Math.floor(perRowBudget - chromeHeight));
+      if (gridFitMinHeights[capacity] === undefined || targetImgHeight < gridFitMinHeights[capacity]) {
+        gridFitMinHeights[capacity] = targetImgHeight;
+        changed = true;
+      }
+    });
   });
+  if (!changed) return;
+
+  const rules = Object.keys(gridFitMinHeights)
+    .map((capacity) => `.product-grid-${capacity} .product-tile img { height: ${gridFitMinHeights[capacity]}px !important; }`);
   if (!rules.length) return;
 
   if (!dynamicGridStyleEl) {
@@ -1796,10 +1835,22 @@ function fitProductGridImages() {
   }
   dynamicGridStyleEl.textContent = rules.join('\n');
 }
-// A fresh double-rAF lets whatever just changed (a flip, a resize) actually
-// land in the real layout before fitProductGridImages() measures it.
-function scheduleGridFit() {
-  requestAnimationFrame(() => requestAnimationFrame(fitProductGridImages));
+// Retries across animation frames until at least one product-grid page has
+// actually been mounted (real, non-zero dimensions) into the live DOM -
+// loadFromHTML() finishes mounting pages asynchronously, so a fixed
+// one-or-two-frame delay could still run before that ever completes and
+// silently compute nothing.
+function scheduleGridFit(opts, attemptsLeft = 20) {
+  requestAnimationFrame(() => {
+    const grid = bookFlipEl && bookFlipEl.querySelector('.product-grid-6, .product-grid-4, .product-grid-3');
+    const page = grid && grid.closest('.page');
+    const ready = page && page.getBoundingClientRect().height > 0;
+    if (ready || attemptsLeft <= 0) {
+      fitProductGridImages(opts);
+    } else {
+      scheduleGridFit(opts, attemptsLeft - 1);
+    }
+  });
 }
 
 function syncLayout() {
@@ -1808,7 +1859,13 @@ function syncLayout() {
   ensurePageFlipMode();
   sizeBookFlip();
   if (pageFlip) updateSoloCentering();
-  scheduleGridFit();
+  // A genuine layout change (resize, orientation, spread/single switch)
+  // can make the previously-tightest page no longer be the tightest one
+  // (or make it fit fine now) - starting the min-height tracking over
+  // from the CSS breakpoint defaults here, rather than carrying forward
+  // whatever the old layout needed, is what lets the image grow back up
+  // again after e.g. rotating to a taller orientation.
+  scheduleGridFit({ reset: true });
 }
 // On mobile, the on-screen keyboard opening/closing fires window resize
 // events too (innerHeight shrinks/grows), even though nothing about the
