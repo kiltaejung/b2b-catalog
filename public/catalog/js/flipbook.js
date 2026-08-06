@@ -2298,15 +2298,32 @@ document.addEventListener('focusout', (e) => {
 // tab isn't even in front). The book stays sized to that stale, keyboard-
 // shrunk viewport indefinitely - reported back as a permanent blank gap at
 // the bottom that only went away after another 예산 검색 + 이동 happened to
-// trigger closeSheet()'s own resync. Explicitly resyncing the moment the
-// tab becomes visible again closes that gap regardless of whatever focus
-// state was left over from before it was backgrounded.
+// trigger closeSheet()'s own resync.
+//
+// Explicitly resyncing the moment the tab becomes visible again closes
+// that gap regardless of whatever focus state was left over from before it
+// was backgrounded - twice, same as closeSheet()'s own resync: the browser
+// hasn't necessarily finished restoring the page's real, final layout
+// (address bar/toolbar chrome sliding back in, etc.) at the exact instant
+// this event fires, so an immediate-only call can still measure a
+// transiently wrong size and re-bake the same bug right back in.
+function resyncOnReturn() {
+  clearTimeout(resizeSettleTimer);
+  syncLayout();
+  setTimeout(syncLayout, 300);
+}
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    clearTimeout(resizeSettleTimer);
-    syncLayout();
-  }
+  if (document.visibilityState === 'visible') resyncOnReturn();
 });
+// Mobile Chrome/Safari commonly restore a page instantly from the
+// back-forward cache (bfcache) - full JS heap and DOM preserved exactly as
+// it was - when returning via a recent-tabs entry or the back gesture,
+// rather than a real network reload. That's a distinct browser event from
+// visibilitychange (it can fire without one, depending on the exact path
+// back to the tab), and it's exactly the kind of "reopened the site and
+// the old broken layout was just sitting there" return path this was
+// reported against.
+window.addEventListener('pageshow', resyncOnReturn);
 syncLayout();
 
 // ---------------------------------------------------------------------

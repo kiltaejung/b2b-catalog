@@ -14,7 +14,21 @@ const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// no-cache (not no-store) on JS/CSS: the browser may still keep a cached
+// copy, but MUST revalidate with the server (If-None-Match/-Modified-Since,
+// answered with a fast 304 when unchanged) before using it, rather than
+// serving a stale copy straight from disk for however long its own default
+// heuristic caching decides is safe. This app is actively hotfixed - a
+// user's browser silently running JS from several deploys ago (looking
+// like an already-fixed bug "coming back") is a worse failure mode here
+// than the extra round-trip per load costs.
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.css') || filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+}));
 
 app.get('/config.js', (req, res) => {
   const config = {
