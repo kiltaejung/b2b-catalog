@@ -202,7 +202,7 @@ function pageHtml(pageData) {
               <li>✔ 대량 주문시 할인 드립니다</li>
             </ul>
             <div class="og-qr-box">
-              <div class="og-qr-code"></div>
+              <img class="og-qr-code" src="/assets/order-guide-qr.png" alt="추석선물 전체 상품보기 QR코드" />
               <div class="og-qr-text">
                 추석선물 전체 상품보기<br />
                 URL: event.fosla.co.kr<br />
@@ -532,7 +532,6 @@ function ensurePageFlipMode() {
 
   pageFlip = new St.PageFlip(bookFlipEl, getPageFlipSettings(mode));
   pageFlip.loadFromHTML(buildPageElements());
-  renderStaticQrCodes();
   pageFlip.on('flip', (e) => {
     state.currentPageIndex = e.data;
     updateNavUI(e.data + 1);
@@ -1378,25 +1377,6 @@ function loadQrLibrary() {
   return qrLibraryPromise;
 }
 
-// The order-guide page's QR (a fixed store URL, not this catalog's own
-// share link) is baked into the page HTML as an empty .og-qr-code
-// container - filled in here once the library's loaded, for every such
-// container currently in the DOM (the main book and the print container
-// can each hold one at the same time).
-function renderStaticQrCodes() {
-  const containers = document.querySelectorAll('.og-qr-code:not([data-qr-rendered])');
-  if (!containers.length) return;
-  loadQrLibrary().then(() => {
-    containers.forEach((el) => {
-      el.dataset.qrRendered = '1';
-      // eslint-disable-next-line no-new
-      new window.QRCode(el, { text: 'https://event.fosla.co.kr', width: 90, height: 90 });
-    });
-  }).catch(() => {
-    containers.forEach((el) => { el.textContent = 'QR코드를 생성할 수 없습니다.'; });
-  });
-}
-
 async function shareViaQr() {
   const container = document.getElementById('qrContainer');
   container.innerHTML = '생성 중...';
@@ -1501,7 +1481,6 @@ function buildPrintContainer() {
   container.innerHTML = state.pages.map((pageData) => `
     <div class="print-page">${pageHtml(pageData)}</div>
   `).join('');
-  renderStaticQrCodes();
 }
 
 function triggerPrint() {
