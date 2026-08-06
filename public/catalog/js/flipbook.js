@@ -1746,13 +1746,20 @@ let printGridStyleEl = null;
 // Must run after the container is made visible (.print-active, see CSS) -
 // offsetHeight reads 0 on a display:none box - and after .btn-add-cart is
 // hidden (also via CSS) so that freed space counts toward the image budget.
+// The true max-fit height computed below intentionally isn't used as-is
+// for print - it assumed the image was the only thing competing for row
+// height, but print also runs a larger product-name/sale-price type scale
+// and a wider tile gap (see the #printContainer-scoped CSS) that need
+// their own room. Scaling the image down from its own true max leaves that
+// room deliberately instead of the two fighting over the same space.
+const PRINT_IMAGE_SCALE = 2 / 3;
 function fitProductGridImagesForPrint(container) {
   const mins = {};
   idealImgHeightForPage(container).forEach(({ capacity, category, targetImgHeight }) => {
     const key = `${category}::${capacity}`;
     if (mins[key] === undefined || targetImgHeight < mins[key].height) mins[key] = { category, capacity, height: targetImgHeight };
   });
-  const rules = Object.values(mins).map(({ category, capacity, height: h }) => `#printContainer .product-grid-${capacity}[data-category="${cssAttrEscape(category)}"] .product-tile img { height: ${h}px !important; }`);
+  const rules = Object.values(mins).map(({ category, capacity, height: h }) => `#printContainer .product-grid-${capacity}[data-category="${cssAttrEscape(category)}"] .product-tile img { height: ${Math.max(36, Math.round(h * PRINT_IMAGE_SCALE))}px !important; }`);
   if (!printGridStyleEl) {
     printGridStyleEl = document.createElement('style');
     printGridStyleEl.id = 'printGridFit';
