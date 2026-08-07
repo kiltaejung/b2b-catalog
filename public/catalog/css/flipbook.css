@@ -1082,25 +1082,23 @@ html, body {
    also frees up the tile's own chrome height so fitProductGridImagesForPrint()
    (flipbook.js) gives the image that freed space instead. */
 #printContainer .btn-add-cart { display: none; }
-/* Print-only typography/spacing tuning - larger product name, sale price
-   emphasized over the crossed-out list price, more breathing room between
-   tiles. #printContainer-scoped (not just a plain class) so this reliably
+/* Print-only typography/spacing tuning - sale price still emphasized over
+   the crossed-out list price, breathing room between tiles.
+   #printContainer-scoped (not just a plain class) so this reliably
    outranks the .product-grid-3/-4 variants' own more-specific font-size
    rules regardless of source order, same reasoning as the grid-fit rule
-   above. The representative image itself is scaled down from its own true
-   max-fit size (see PRINT_IMAGE_SCALE in fitProductGridImagesForPrint(),
-   flipbook.js) specifically to leave room for these larger text rows
-   without pushing the grid past the page - keeping in sync with any
-   spacing change made here. */
+   above. Name/sale-price sizes here are 2/3 of an earlier, larger pass
+   (1.05rem/1.35rem) - shrunk back down specifically so the representative
+   image (fitProductGridImagesForPrint(), flipbook.js) can use its own full
+   true max-fit size again instead of being scaled down to leave room for
+   the type - that scale-down was what left each page only partly filled. */
 #printContainer .product-tile img { object-fit: contain; object-position: center; }
-/* row-gap grows too (not just column-gap) so the space freed by the
-   smaller image (PRINT_IMAGE_SCALE) reads as generous row spacing between
-   tiles rather than one leftover gap dumped below the last row. */
+#printContainer .image-frame { display: flex; align-items: center; justify-content: center; }
 #printContainer .product-grid { column-gap: 0.9rem; row-gap: 0.9rem; }
 #printContainer .product-tile { width: calc((100% - 0.9rem) / 2 - 1px); }
-#printContainer .tile-name { font-size: 1.05rem !important; line-height: 1.25 !important; }
+#printContainer .tile-name { font-size: 0.7rem !important; line-height: 1.25 !important; }
 #printContainer .price-badge .original { font-size: 0.62rem !important; }
-#printContainer .price-badge .sale { font-size: 1.35rem !important; }
+#printContainer .price-badge .sale { font-size: 0.9rem !important; }
 /* Used while buildPrintContainer()'s output is being measured/rasterized -
    real layout/paint requires the element not be display:none, but it must
    stay out of the visible viewport (and, for the PDF path specifically,
